@@ -152,6 +152,17 @@ export default defineSchema({
     .index("by_status", ["status"])
     .index("by_created", ["created_at"]),
 
+  /** Text replies on forum threads (no nesting / likes in MVP). */
+  forum_responses: defineTable({
+    post_id: v.id("forum_posts"),
+    author_id: v.id("users"),
+    body: v.string(),
+    created_at: v.number()
+  })
+    .index("by_post", ["post_id"])
+    .index("by_author", ["author_id"])
+    .index("by_post_created", ["post_id", "created_at"]),
+
   study_spots: defineTable({
     name: v.string(),
     description: v.optional(v.string()),

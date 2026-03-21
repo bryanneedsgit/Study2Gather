@@ -88,6 +88,7 @@ This project uses **Expo + React Native + TypeScript** because it is the most re
 │   ├── cafe.ts
 │   ├── rewards.ts
 │   ├── leaderboard.ts
+│   ├── forum.ts
 │   ├── studySpots.ts
 │   └── rules.ts
 └── supabase
@@ -179,6 +180,23 @@ Container-only session state (no lock-in validation). Use this as the base layer
 | `endSession` | mutation | Close `pending` or `active` → `completed` or `failed`; sets `ended_at`, `duration_minutes`, `points_awarded`, `ended_reason` |
 | `activateSession` | mutation | `pending` → `active`; refreshes `started_at` for duration |
 
+### Forum (`convex/forum.ts`)
+
+Text-only `forum_posts` plus text `forum_responses` (no likes/nested replies in MVP). Generic CRUD also exists under `crudMutations` / `crudQueries` (`addForumResponse`, `deleteForumResponse`, `listForumResponses`; deleting a post cascades deletes its responses). Product APIs use **Convex Auth** for create/resolve/reply.
+
+| Function | Type | Purpose |
+|----------|------|---------|
+| `createPost` | mutation | Authenticated author; `title`, `body`, `subject`, optional `scheduledMeetupTime` |
+| `createResponse` | mutation | Authenticated user; `postId`, `body` |
+| `getPosts` | query | Optional `subject` / `status` filter; sorted by `created_at` desc |
+| `getPostById` | query | Single post or `null` |
+| `getResponsesForPost` | query | Replies for one thread, oldest first; includes `author_name` when set on `users` |
+| `getResponseCounts` | query | `{ [postId]: count }` for a list of post ids |
+| `markPostResolved` | mutation | Author-only; sets `status` → `resolved` |
+| `seedExampleForumPosts` | mutation | Idempotent: if **`forum_responses` is empty**, inserts **2 demo replies per thread** on the **3 oldest** posts (by `created_at`). If there are **no posts yet**, also inserts **3 demo threads** first. Uses **signed-in user** from the app; from **Convex dashboard** pass `authorId` (a `users` id) — dashboard has no JWT. Once any reply exists, seed returns `responses_already_seeded` (clear `forum_responses` in the dashboard to re-run). |
+
+**UI:** `src/screens/forum/ForumScreen.tsx` lists posts with reply counts, opens a thread modal with replies, and can load samples when signed in.
+
 ### Study spots (`convex/studySpots.ts`)
 
 Map/discovery POIs (`study_spots` table). Separate from **`cafe_locations`** (capacity & reservations). Nearby uses Haversine in memory — fine for hackathon dataset sizes.
@@ -236,7 +254,7 @@ Monthly **UTC** window. Uses **only** completed `study_sessions` (`ended_at` in 
 2. Onboarding (school/course/age)
 3. Discover (matchmaking list and filters)
 4. Lock-In (group timer + guardrail checks)
-5. Forum (text-only posts/comments)
+5. Forum (text-only posts and replies)
 6. Study Spots (map + nearby spot directory)
 7. Rewards (ledger events and balances)
 8. Leaderboard (monthly competition ranking)

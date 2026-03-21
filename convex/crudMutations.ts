@@ -204,6 +204,41 @@ export const addForumPost = mutationGeneric({
 export const deleteForumPost = mutationGeneric({
   args: { id: v.id("forum_posts") },
   handler: async (ctx, args) => {
+    const responses = await ctx.db
+      .query("forum_responses")
+      .withIndex("by_post", (q) => q.eq("post_id", args.id))
+      .collect();
+    for (const r of responses) {
+      await ctx.db.delete(r._id);
+    }
+    await ctx.db.delete(args.id);
+  }
+});
+
+/* -------------------------------------------------------------------------- */
+/* forum_responses                                                            */
+/* -------------------------------------------------------------------------- */
+
+export const addForumResponse = mutationGeneric({
+  args: {
+    post_id: v.id("forum_posts"),
+    author_id: v.id("users"),
+    body: v.string(),
+    created_at: v.optional(v.number())
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db.insert("forum_responses", {
+      post_id: args.post_id,
+      author_id: args.author_id,
+      body: args.body,
+      created_at: args.created_at ?? Date.now()
+    });
+  }
+});
+
+export const deleteForumResponse = mutationGeneric({
+  args: { id: v.id("forum_responses") },
+  handler: async (ctx, args) => {
     await ctx.db.delete(args.id);
   }
 });

@@ -102,6 +102,21 @@ export const listForumPosts = queryGeneric({
   }
 });
 
+/* forum_responses */
+export const getForumResponse = queryGeneric({
+  args: { id: v.id("forum_responses") },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.id);
+  }
+});
+
+export const listForumResponses = queryGeneric({
+  args: listArgs,
+  handler: async (ctx, args) => {
+    return await ctx.db.query("forum_responses").take(capLimit(args.limit));
+  }
+});
+
 /* study_spots */
 export const getStudySpot = queryGeneric({
   args: { id: v.id("study_spots") },
