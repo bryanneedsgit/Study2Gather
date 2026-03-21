@@ -5,9 +5,10 @@
 import { mutationGeneric } from "convex/server";
 import { v } from "convex/values";
 
+/** Partner cafés for map / booking demos (~15 rows, SG-area coords). */
 const TEST_CAFE_LOCATIONS = [
   {
-    name: "Study2Gather Test Café — Orchard",
+    name: "Orchard",
     lat: 1.3048,
     lng: 103.832,
     total_stipulated_tables: 24,
@@ -16,7 +17,7 @@ const TEST_CAFE_LOCATIONS = [
     reduce_margin: false
   },
   {
-    name: "Study2Gather Test Café — Kent Ridge",
+    name: "Kent Ridge",
     lat: 1.2966,
     lng: 103.7764,
     total_stipulated_tables: 18,
@@ -25,7 +26,7 @@ const TEST_CAFE_LOCATIONS = [
     reduce_margin: true
   },
   {
-    name: "Study2Gather Test Café — Jurong East",
+    name: "Jurong East",
     lat: 1.3332,
     lng: 103.7423,
     total_stipulated_tables: 32,
@@ -41,8 +42,293 @@ const TEST_CAFE_LOCATIONS = [
     current_occupied_tables: 2,
     footfall_metric: 45,
     reduce_margin: true
+  },
+  {
+    name: "Marina Focus Lounge",
+    lat: 1.283,
+    lng: 103.851,
+    total_stipulated_tables: 40,
+    current_occupied_tables: 14,
+    footfall_metric: 210,
+    reduce_margin: false
+  },
+  {
+    name: "Bugis Brew & Books",
+    lat: 1.2985,
+    lng: 103.8558,
+    total_stipulated_tables: 22,
+    current_occupied_tables: 7,
+    footfall_metric: 155,
+    reduce_margin: false
+  },
+  {
+    name: "Holland Village Quiet Cup",
+    lat: 1.3112,
+    lng: 103.7956,
+    total_stipulated_tables: 16,
+    current_occupied_tables: 5,
+    footfall_metric: 72,
+    reduce_margin: true
+  },
+  {
+    name: "Tampines Study Hub Café",
+    lat: 1.3526,
+    lng: 103.9448,
+    total_stipulated_tables: 28,
+    current_occupied_tables: 9,
+    footfall_metric: 168,
+    reduce_margin: false
+  },
+  {
+    name: "Serangoon Night Owl Roasters",
+    lat: 1.3498,
+    lng: 103.8738,
+    total_stipulated_tables: 20,
+    current_occupied_tables: 6,
+    footfall_metric: 98,
+    reduce_margin: true
+  },
+  {
+    name: "Clementi Campus Corner",
+    lat: 1.315,
+    lng: 103.7652,
+    total_stipulated_tables: 26,
+    current_occupied_tables: 8,
+    footfall_metric: 132,
+    reduce_margin: false
+  },
+  {
+    name: "Bishan Brain Fuel",
+    lat: 1.3506,
+    lng: 103.8484,
+    total_stipulated_tables: 18,
+    current_occupied_tables: 4,
+    footfall_metric: 88,
+    reduce_margin: true
+  },
+  {
+    name: "Punggol Waterside Study Spot",
+    lat: 1.405,
+    lng: 103.902,
+    total_stipulated_tables: 24,
+    current_occupied_tables: 7,
+    footfall_metric: 112,
+    reduce_margin: false
+  },
+  {
+    name: "Woodlands North Bean Lab",
+    lat: 1.428,
+    lng: 103.786,
+    total_stipulated_tables: 14,
+    current_occupied_tables: 3,
+    footfall_metric: 52,
+    reduce_margin: true
+  },
+  {
+    name: "Changi Airport T3 Focus Bar",
+    lat: 1.3547,
+    lng: 103.9886,
+    total_stipulated_tables: 36,
+    current_occupied_tables: 18,
+    footfall_metric: 240,
+    reduce_margin: false
+  },
+  {
+    name: "Dhoby Ghaut Underground Grind",
+    lat: 1.299,
+    lng: 103.845,
+    total_stipulated_tables: 30,
+    current_occupied_tables: 11,
+    footfall_metric: 178,
+    reduce_margin: false
   }
 ] as const;
+
+/** Partner cafés (~49.14°N, 9.21°E) for EU demos. */
+const HEILBRONN_PARTNER_CAFES = [
+  {
+    name: "Marktplatz Lernlounge",
+    lat: 49.1431,
+    lng: 9.2188,
+    total_stipulated_tables: 20,
+    current_occupied_tables: 5,
+    footfall_metric: 95,
+    reduce_margin: false
+  },
+  {
+    name: "Neckar Ufer Focus Café",
+    lat: 49.1389,
+    lng: 9.2242,
+    total_stipulated_tables: 16,
+    current_occupied_tables: 4,
+    footfall_metric: 72,
+    reduce_margin: true
+  },
+  {
+    name: "Rathaus Quartier Beans",
+    lat: 49.1415,
+    lng: 9.2134,
+    total_stipulated_tables: 24,
+    current_occupied_tables: 8,
+    footfall_metric: 110,
+    reduce_margin: false
+  },
+  {
+    name: "Kilianskirche Study Corner",
+    lat: 49.1442,
+    lng: 9.2201,
+    total_stipulated_tables: 12,
+    current_occupied_tables: 2,
+    footfall_metric: 48,
+    reduce_margin: true
+  },
+  {
+    name: "Experimenta Café Lab",
+    lat: 49.1356,
+    lng: 9.2078,
+    total_stipulated_tables: 28,
+    current_occupied_tables: 9,
+    footfall_metric: 140,
+    reduce_margin: false
+  },
+  {
+    name: "Böckingen Campus Brew",
+    lat: 49.1284,
+    lng: 9.1956,
+    total_stipulated_tables: 22,
+    current_occupied_tables: 6,
+    footfall_metric: 88,
+    reduce_margin: false
+  },
+  {
+    name: "Sontheim Hochschule Spot",
+    lat: 49.1247,
+    lng: 9.1889,
+    total_stipulated_tables: 30,
+    current_occupied_tables: 12,
+    footfall_metric: 155,
+    reduce_margin: true
+  },
+  {
+    name: "Weststadt Quiet Grind",
+    lat: 49.1512,
+    lng: 9.2015,
+    total_stipulated_tables: 14,
+    current_occupied_tables: 3,
+    footfall_metric: 55,
+    reduce_margin: true
+  },
+  {
+    name: "Oststadt Night Owl",
+    lat: 49.1489,
+    lng: 9.2321,
+    total_stipulated_tables: 18,
+    current_occupied_tables: 5,
+    footfall_metric: 78,
+    reduce_margin: false
+  },
+  {
+    name: "Flein Gate Roastery",
+    lat: 49.1567,
+    lng: 9.2254,
+    total_stipulated_tables: 10,
+    current_occupied_tables: 2,
+    footfall_metric: 40,
+    reduce_margin: true
+  },
+  {
+    name: "Trappensee Lakeside Desk",
+    lat: 49.1321,
+    lng: 9.2398,
+    total_stipulated_tables: 26,
+    current_occupied_tables: 7,
+    footfall_metric: 102,
+    reduce_margin: false
+  },
+  {
+    name: "Alte Zuckerfabrik Co-Work Café",
+    lat: 49.1398,
+    lng: 9.2056,
+    total_stipulated_tables: 32,
+    current_occupied_tables: 11,
+    footfall_metric: 175,
+    reduce_margin: false
+  },
+  {
+    name: "Deutschhof Passage Coffee",
+    lat: 49.1426,
+    lng: 9.2167,
+    total_stipulated_tables: 15,
+    current_occupied_tables: 4,
+    footfall_metric: 62,
+    reduce_margin: true
+  },
+  {
+    name: "Harmonie Halls Study Bar",
+    lat: 49.1403,
+    lng: 9.2289,
+    total_stipulated_tables: 21,
+    current_occupied_tables: 6,
+    footfall_metric: 90,
+    reduce_margin: false
+  },
+  {
+    name: "Kaufland Block Focus Bean",
+    lat: 49.1467,
+    lng: 9.1987,
+    total_stipulated_tables: 19,
+    current_occupied_tables: 5,
+    footfall_metric: 70,
+    reduce_margin: true
+  },
+  {
+    name: "Neckartal Radweg Stop",
+    lat: 49.1334,
+    lng: 9.2145,
+    total_stipulated_tables: 8,
+    current_occupied_tables: 1,
+    footfall_metric: 28,
+    reduce_margin: true
+  },
+  {
+    name: "Pfühlpark Bench & Bean",
+    lat: 49.1589,
+    lng: 9.2112,
+    total_stipulated_tables: 11,
+    current_occupied_tables: 2,
+    footfall_metric: 35,
+    reduce_margin: true
+  },
+  {
+    name: "Bildungscampus Süd Espresso",
+    lat: 49.1211,
+    lng: 9.2034,
+    total_stipulated_tables: 35,
+    current_occupied_tables: 14,
+    footfall_metric: 190,
+    reduce_margin: false
+  },
+  {
+    name: "Südbahnhof Transit Grind",
+    lat: 49.1378,
+    lng: 9.2334,
+    total_stipulated_tables: 17,
+    current_occupied_tables: 5,
+    footfall_metric: 68,
+    reduce_margin: false
+  },
+  {
+    name: "Wartberg Viewpoint Café",
+    lat: 49.1623,
+    lng: 9.2189,
+    total_stipulated_tables: 9,
+    current_occupied_tables: 2,
+    footfall_metric: 32,
+    reduce_margin: true
+  }
+] as const;
+
+const ALL_SEED_CAFE_LOCATIONS = [...TEST_CAFE_LOCATIONS, ...HEILBRONN_PARTNER_CAFES];
 
 export const seedCafeLocations = mutationGeneric({
   args: {
@@ -53,7 +339,7 @@ export const seedCafeLocations = mutationGeneric({
     const inserted: string[] = [];
     const skipped: string[] = [];
 
-    for (const row of TEST_CAFE_LOCATIONS) {
+    for (const row of ALL_SEED_CAFE_LOCATIONS) {
       if (!args.forceDuplicateNames) {
         const existing = await ctx.db
           .query("cafe_locations")

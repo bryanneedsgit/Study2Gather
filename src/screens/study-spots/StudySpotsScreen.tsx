@@ -1,80 +1,332 @@
-import { StyleSheet, Text, View } from "react-native";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  ActivityIndicator,
+  Linking,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View
+} from "react-native";
+import * as Location from "expo-location";
+import { useQuery } from "convex/react";
 import { AppCard } from "@/components/AppCard";
-import { PlaceholderScreen } from "@/components/PlaceholderScreen";
+import { ScreenContainer } from "@/components/ScreenContainer";
+import { api } from "@/lib/convexApi";
 import { colors } from "@/theme/colors";
-import { space } from "@/theme/layout";
+import { radius, space } from "@/theme/layout";
+import StudySpotsMap from "./StudySpotsMap";
+import type { MapPoi, MapRegion } from "./studySpotsMapTypes";
 
-const SPOTS = [
-  { id: "1", name: "Central Library — Level 3 Quiet", distance: "0.4 km", open: "07:00–23:00", seats: "Busy" },
-  { id: "2", name: "Innovation Hub — Hot desks", distance: "0.9 km", open: "08:00–22:00", seats: "Moderate" },
-  { id: "3", name: "Campus Cafe — Window bar", distance: "1.1 km", open: "08:00–20:00", seats: "Calm" }
-] as const;
+/** Default map center before GPS resolves (partner café seed area ~Heilbronn). */
+const DEFAULT_LAT = 49.1427;
+const DEFAULT_LNG = 9.2109;
+
+type CafeRow = {
+  _id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  total_stipulated_tables: number;
+  current_occupied_tables: number;
+  footfall_metric: number;
+  distanceKm: number;
+  distanceMeters: number;
+};
+
+function cafeToPoi(c: CafeRow): MapPoi {
+  const free = Math.max(0, c.total_stipulated_tables - c.current_occupied_tables);
+  return {
+    key: `c:${c._id}`,
+    kind: "partner_cafe",
+    name: c.name,
+    lat: c.lat,
+    lng: c.lng,
+    distanceKm: c.distanceKm,
+    distanceMeters: c.distanceMeters,
+    subtitle: `Partner café · ${free} seats free · footfall ${c.footfall_metric}`
+  };
+}
+
+function matchesSearch(poi: MapPoi, q: string): boolean {
+  const n = q.trim().toLowerCase();
+  if (!n) return true;
+  return (
+    poi.name.toLowerCase().includes(n) ||
+    poi.subtitle.toLowerCase().includes(n) ||
+    (poi.description ?? "").toLowerCase().includes(n)
+  );
+}
 
 export function StudySpotsScreen() {
+  const [coords, setCoords] = useState<{ lat: number; lng: number }>({
+    lat: DEFAULT_LAT,
+    lng: DEFAULT_LNG
+  });
+  const [region, setRegion] = useState<MapRegion>({
+    latitude: DEFAULT_LAT,
+    longitude: DEFAULT_LNG,
+    latitudeDelta: 0.12,
+    longitudeDelta: 0.12
+  });
+  const [search, setSearch] = useState("");
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [locReady, setLocReady] = useState(false);
+  const [userOnMap, setUserOnMap] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (cancelled) return;
+      if (status !== "granted") {
+        setLocReady(true);
+        setUserOnMap(false);
+        return;
+      }
+      setUserOnMap(true);
+      try {
+        const loc = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced
+        });
+        if (cancelled) return;
+        const lat = loc.coords.latitude;
+        const lng = loc.coords.longitude;
+        setCoords({ lat, lng });
+        setRegion({
+          latitude: lat,
+          longitude: lng,
+          latitudeDelta: 0.08,
+          longitudeDelta: 0.08
+        });
+      } finally {
+        if (!cancelled) setLocReady(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const nearbyCafes = useQuery(api.cafeLocations.getNearbyCafeLocations, {
+    lat: coords.lat,
+    lng: coords.lng,
+    limit: 40,
+    maxDistanceKm: 80
+  });
+
+  const mapPois = useMemo(() => {
+    const cafeList = (nearbyCafes?.cafes ?? []) as CafeRow[];
+    return cafeList.map(cafeToPoi).sort((a, b) => a.distanceKm - b.distanceKm);
+  }, [nearbyCafes?.cafes]);
+
+  const filtered = useMemo(() => {
+    return mapPois.filter((p) => matchesSearch(p, search));
+  }, [mapPois, search]);
+
+  const onRegionChangeComplete = useCallback((r: MapRegion) => {
+    setRegion(r);
+  }, []);
+
+  const focusPoi = useCallback((poi: MapPoi) => {
+    setSelectedKey(poi.key);
+    setRegion({
+      latitude: poi.lat,
+      longitude: poi.lng,
+      latitudeDelta: 0.04,
+      longitudeDelta: 0.04
+    });
+  }, []);
+
+  const openInMaps = useCallback((lat: number, lng: number) => {
+    const url =
+      Platform.OS === "web"
+        ? `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=16/${lat}/${lng}`
+        : `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+    void Linking.openURL(url);
+  }, []);
+
+  const dataLoading = nearbyCafes === undefined;
+
+  const userLocation =
+    userOnMap ? { latitude: coords.lat, longitude: coords.lng } : null;
+
   return (
-    <PlaceholderScreen title="Study Spots" subtitle="Partner cafés and campus spaces — map view coming soon.">
-      {SPOTS.map((s) => (
-        <AppCard key={s.id} style={styles.card}>
-          <Text style={styles.name}>{s.name}</Text>
-          <View style={styles.row}>
-            <Text style={styles.pill}>{s.distance}</Text>
-            <Text style={styles.pillMuted}>{s.open}</Text>
-          </View>
-          <Text style={styles.foot}>Footfall: {s.seats}</Text>
+    <ScreenContainer scroll tabTitle="Study Spots">
+      <Text style={styles.lead}>
+        Partner cafés near you. Your location appears on the map when location access is allowed. Search
+        or tap a pin, then open a card.
+      </Text>
+
+      <TextInput
+        value={search}
+        onChangeText={setSearch}
+        placeholder="Search partner cafés…"
+        placeholderTextColor={colors.textMuted}
+        style={styles.search}
+        autoCapitalize="none"
+        autoCorrect={false}
+        {...(Platform.OS === "ios" ? { clearButtonMode: "while-editing" as const } : {})}
+      />
+
+      {!locReady || dataLoading ? (
+        <View style={styles.loadingMap}>
+          <ActivityIndicator color={colors.primary} size="large" />
+          <Text style={styles.loadingText}>Loading map & cafés…</Text>
+        </View>
+      ) : (
+        <StudySpotsMap
+          region={region}
+          spots={filtered}
+          selectedKey={selectedKey}
+          onSelect={setSelectedKey}
+          onRegionChangeComplete={onRegionChangeComplete}
+          showsUserLocation={userOnMap}
+          userLocation={userLocation}
+        />
+      )}
+
+      {!dataLoading && filtered.length === 0 ? (
+        <AppCard muted style={styles.empty}>
+          <Text style={styles.emptyText}>
+            {(nearbyCafes?.count ?? 0) === 0
+              ? "No partner cafés in range. Seed cafe_locations in Convex."
+              : "No cafés match your search. Try another keyword."}
+          </Text>
         </AppCard>
+      ) : null}
+
+      {filtered.map((s) => (
+        <Pressable key={s.key} onPress={() => focusPoi(s)} accessibilityRole="button">
+          <AppCard
+            style={StyleSheet.flatten([
+              styles.card,
+              selectedKey === s.key ? styles.cardSelected : undefined
+            ])}
+          >
+            <View style={styles.cardTop}>
+              <Text style={styles.name}>{s.name}</Text>
+              <View style={[styles.kindPill, styles.kindPillCafe]}>
+                <Text style={[styles.kindPillText, styles.kindPillTextCafe]}>Partner café</Text>
+              </View>
+            </View>
+            <Text style={styles.meta}>
+              {s.distanceKm} km · {s.distanceMeters} m
+            </Text>
+            <Text style={styles.subtitle}>{s.subtitle}</Text>
+            {s.description ? <Text style={styles.desc}>{s.description}</Text> : null}
+            <Pressable
+              onPress={() => openInMaps(s.lat, s.lng)}
+              style={styles.mapsLink}
+              accessibilityRole="link"
+              accessibilityLabel="Open in maps"
+            >
+              <Text style={styles.mapsLinkText}>Open in maps</Text>
+            </Pressable>
+          </AppCard>
+        </Pressable>
       ))}
-      <AppCard muted>
-        <Text style={styles.mapHint}>
-          An interactive map with hours, quiet zones, and power outlets is coming soon.
-        </Text>
-      </AppCard>
-    </PlaceholderScreen>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
+  lead: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: colors.textSecondary,
     marginBottom: space.md
   },
-  name: {
-    fontSize: 17,
-    fontWeight: "700",
+  search: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingHorizontal: space.md,
+    paddingVertical: 12,
+    fontSize: 16,
     color: colors.textPrimary,
-    marginBottom: space.sm
+    marginBottom: space.md,
+    backgroundColor: colors.cardMuted
   },
-  row: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: space.sm
+  loadingMap: {
+    height: 200,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: space.sm,
+    marginBottom: space.lg
   },
-  pill: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: colors.accent,
-    backgroundColor: colors.accentMuted,
-    paddingHorizontal: space.sm + 2,
-    paddingVertical: 4,
-    borderRadius: 8,
-    overflow: "hidden"
-  },
-  pillMuted: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: colors.textSecondary,
-    backgroundColor: colors.cardMuted,
-    paddingHorizontal: space.sm + 2,
-    paddingVertical: 4,
-    borderRadius: 8,
-    overflow: "hidden"
-  },
-  foot: {
-    marginTop: space.sm,
-    fontSize: 13,
+  loadingText: {
+    fontSize: 14,
     color: colors.textSecondary
   },
-  mapHint: {
+  empty: {
+    marginBottom: space.md
+  },
+  emptyText: {
     fontSize: 14,
     lineHeight: 20,
     color: colors.textSecondary
+  },
+  card: {
+    marginBottom: space.md
+  },
+  cardSelected: {
+    borderWidth: 1,
+    borderColor: colors.primary
+  },
+  cardTop: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: space.sm,
+    marginBottom: space.xs
+  },
+  name: {
+    flex: 1,
+    fontSize: 17,
+    fontWeight: "700",
+    color: colors.textPrimary
+  },
+  kindPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8
+  },
+  kindPillCafe: {
+    backgroundColor: "rgba(251, 191, 36, 0.15)"
+  },
+  kindPillText: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: colors.textPrimary
+  },
+  kindPillTextCafe: {
+    color: colors.warning
+  },
+  meta: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginBottom: space.xs
+  },
+  subtitle: {
+    fontSize: 13,
+    color: colors.textMuted,
+    lineHeight: 18
+  },
+  desc: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.textSecondary,
+    marginTop: space.sm
+  },
+  mapsLink: {
+    marginTop: space.sm,
+    alignSelf: "flex-start"
+  },
+  mapsLinkText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: colors.primary
   }
 });
