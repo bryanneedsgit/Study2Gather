@@ -16,8 +16,7 @@ export function LeaderboardScreen() {
   const rank = useQuery(api.leaderboard.getUserRank, userId ? { userId } : "skip");
 
   return (
-    <ScreenContainer>
-      <Text style={styles.title}>Leaderboard</Text>
+    <ScreenContainer tabTitle="Leaderboard">
       <Text style={styles.subtitle}>Monthly standings from completed group study sessions (UTC month).</Text>
 
       {userId && rank?.found ? (
@@ -64,13 +63,6 @@ export function LeaderboardScreen() {
 }
 
 const styles = StyleSheet.create({
-  title: {
-    fontSize: 28,
-    fontWeight: "800",
-    color: colors.textPrimary,
-    letterSpacing: -0.6,
-    marginBottom: space.sm
-  },
   subtitle: {
     fontSize: 15,
     lineHeight: 22,

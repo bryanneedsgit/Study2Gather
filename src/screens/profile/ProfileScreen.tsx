@@ -1,4 +1,4 @@
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { useMutation, useQuery } from "convex/react";
 import { AppCard } from "@/components/AppCard";
 import { PrimaryButton } from "@/components/PrimaryButton";
@@ -13,29 +13,18 @@ function tierLabel(tier: string): string {
 }
 
 export function ProfileScreen() {
-  const { user, signOut } = useSession();
+  const { user } = useSession();
   const smokeKey = user?.email?.replace(/[^a-z0-9]/gi, "-") ?? "profile-smoke-test";
 
-  const backendStatus = useQuery(api.queries.getBackendHealth, { key: smokeKey });
+  const backendStatus = useQuery(
+    api.queries.getBackendHealth,
+    __DEV__ ? { key: smokeKey } : "skip"
+  );
   const increment = useMutation(api.mutations.incrementTestCounter);
 
   return (
-    <ScreenContainer>
-      <View style={styles.topRow}>
-        <View style={styles.titleBlock}>
-          <Text style={styles.title}>Profile</Text>
-          <Text style={styles.subtitle}>Account, tier, and Convex health checks.</Text>
-        </View>
-        <TouchableOpacity
-          style={styles.logoutPill}
-          onPress={() => void signOut()}
-          accessibilityRole="button"
-          accessibilityLabel="Log out and return to sign in"
-          activeOpacity={0.85}
-        >
-          <Text style={styles.logoutPillText}>Log out</Text>
-        </TouchableOpacity>
-      </View>
+    <ScreenContainer tabTitle="Profile">
+      <Text style={styles.subtitle}>Your account, tier, and points.</Text>
 
       {user ? (
         <AppCard style={styles.hero}>
@@ -76,69 +65,36 @@ export function ProfileScreen() {
         </AppCard>
       ) : null}
 
-      <View style={styles.logoutBlock}>
-        <Text style={styles.logoutHint}>You'll return to the sign-in screen.</Text>
-        <PrimaryButton title="Log out" onPress={() => void signOut()} variant="danger" />
-      </View>
-
-      <Text style={styles.devHeading}>Developer</Text>
-      <AppCard muted>
-        {backendStatus === undefined ? (
-          <ActivityIndicator color={colors.primary} />
-        ) : (
-          <Text style={styles.devText}>
-            {backendStatus.message} · smoke count {backendStatus.count} · users {backendStatus.totalUsers}
-          </Text>
-        )}
-        <PrimaryButton
-          title="Increment test counter"
-          onPress={() => increment({ key: smokeKey })}
-          variant="secondary"
-          style={styles.devBtn}
-        />
-      </AppCard>
+      {__DEV__ ? (
+        <>
+          <Text style={styles.devHeading}>Developer</Text>
+          <AppCard muted>
+            {backendStatus === undefined ? (
+              <ActivityIndicator color={colors.primary} />
+            ) : (
+              <Text style={styles.devText}>
+                {backendStatus.message} · smoke count {backendStatus.count} · users {backendStatus.totalUsers}
+              </Text>
+            )}
+            <PrimaryButton
+              title="Increment test counter"
+              onPress={() => increment({ key: smokeKey })}
+              variant="secondary"
+              style={styles.devBtn}
+            />
+          </AppCard>
+        </>
+      ) : null}
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  topRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    gap: space.md,
-    marginBottom: space.lg
-  },
-  titleBlock: {
-    flex: 1,
-    minWidth: 0
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: "800",
-    color: colors.textPrimary,
-    letterSpacing: -0.6,
-    marginBottom: space.sm
-  },
   subtitle: {
     fontSize: 15,
     lineHeight: 22,
-    color: colors.textSecondary
-  },
-  logoutPill: {
-    marginTop: 4,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 12,
-    backgroundColor: "rgba(248, 113, 113, 0.22)",
-    borderWidth: 2,
-    borderColor: "#F87171",
-    flexShrink: 0
-  },
-  logoutPillText: {
-    color: "#FECACA",
-    fontSize: 15,
-    fontWeight: "800"
+    color: colors.textSecondary,
+    marginBottom: space.lg
   },
   hero: {
     marginBottom: space.lg
@@ -210,15 +166,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: colors.textPrimary,
     marginTop: 4
-  },
-  logoutBlock: {
-    marginBottom: space.xl
-  },
-  logoutHint: {
-    fontSize: 13,
-    color: colors.textMuted,
-    marginBottom: space.sm,
-    lineHeight: 18
   },
   devHeading: {
     fontSize: 13,

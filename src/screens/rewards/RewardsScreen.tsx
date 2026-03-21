@@ -16,9 +16,8 @@ export function RewardsScreen() {
   const catalog = useQuery(api.rewards.getAvailableRewards, {});
 
   return (
-    <ScreenContainer>
-      <Text style={styles.title}>Rewards</Text>
-      <Text style={styles.subtitle}>Spend lifetime points on perks — catalog is seeded from Convex.</Text>
+    <ScreenContainer tabTitle="Rewards">
+      <Text style={styles.subtitle}>Spend your points on perks from the catalog below.</Text>
 
       <AppCard style={styles.balance}>
         <Text style={styles.balanceLabel}>Your balance</Text>
@@ -35,7 +34,7 @@ export function RewardsScreen() {
         <ActivityIndicator color={colors.primary} style={{ marginVertical: 24 }} />
       ) : catalog.length === 0 ? (
         <AppCard muted>
-          <Text style={styles.empty}>No active rewards yet. Run the seed mutation from the Convex dashboard.</Text>
+          <Text style={styles.empty}>No rewards are available right now. Check back soon.</Text>
         </AppCard>
       ) : (
         catalog.map((item) => (
@@ -55,13 +54,6 @@ export function RewardsScreen() {
 }
 
 const styles = StyleSheet.create({
-  title: {
-    fontSize: 28,
-    fontWeight: "800",
-    color: colors.textPrimary,
-    letterSpacing: -0.6,
-    marginBottom: space.sm
-  },
   subtitle: {
     fontSize: 15,
     lineHeight: 22,

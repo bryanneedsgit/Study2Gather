@@ -34,8 +34,6 @@ export function LockInScreen() {
     }
   }
 
-  const loadingPolicy = policy === undefined || locationCheckIn === undefined;
-
   return (
     <PlaceholderScreen title="Lock-In" subtitle="Solo focus session — earn points for eligible time.">
       {policy === undefined ? (
@@ -82,7 +80,7 @@ export function LockInScreen() {
         ) : (
           <>
             <PrimaryButton
-              title={isLockedIn ? "Session active (see fullscreen)" : "Start locked in"}
+              title={isLockedIn ? "Session active" : "Start locked in"}
               onPress={() => void onStart()}
               disabled={!canStart}
             />

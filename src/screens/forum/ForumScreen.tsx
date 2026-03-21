@@ -221,6 +221,10 @@ export function ForumScreen() {
           ) : null}
         </SafeAreaView>
       </Modal>
+
+      <Text style={styles.footer}>
+        New threads and replies are moderated for a respectful, academic tone.
+      </Text>
     </PlaceholderScreen>
   );
 }
@@ -420,5 +424,11 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "700",
     color: colors.primary
+  },
+  footer: {
+    marginTop: space.lg,
+    fontSize: 13,
+    color: colors.textMuted,
+    lineHeight: 18
   }
 });

@@ -13,11 +13,9 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { AuthHelpCallout } from "@/components/AuthHelpCallout";
 import { FormErrorBanner } from "@/components/FormErrorBanner";
 import { FormField } from "@/components/FormField";
 import { StudyBackground } from "@/components/study2gather/StudyBackground";
-import { env } from "@/config/env";
 import { useSession } from "@/context/SessionContext";
 import type { AuthStackParamList } from "@/navigation/types";
 import { sg } from "@/theme/study2gatherUi";
@@ -70,9 +68,7 @@ export function SignInScreen() {
         raw.toLowerCase().includes("failed to fetch") ||
         raw.toLowerCase().includes("network")
       ) {
-        setFormError(
-          `Network error: ${raw}\n\nCheck Wi‑Fi and that Convex dev is running (npm run convex:dev).`
-        );
+        setFormError(`Network error: ${raw}\n\nCheck your internet connection and try again.`);
       } else {
         setFormError(raw);
       }
@@ -184,14 +180,7 @@ export function SignInScreen() {
                 </Text>
               </TouchableOpacity>
 
-              {__DEV__ && env.convexUrl ? (
-                <Text style={styles.devHint} numberOfLines={2}>
-                  Dev: Convex URL ({env.convexUrl.slice(0, 44)}…)
-                </Text>
-              ) : null}
             </View>
-
-            <AuthHelpCallout theme="dark" />
 
             <Text style={styles.legal}>By continuing, you agree to the app&apos;s terms and privacy practices.</Text>
           </ScrollView>
@@ -272,13 +261,6 @@ const styles = StyleSheet.create({
     color: sg.emerald,
     fontSize: 15,
     fontWeight: "700"
-  },
-  devHint: {
-    fontSize: 11,
-    color: "rgba(255,255,255,0.35)",
-    marginTop: 16,
-    lineHeight: 16,
-    textAlign: "center"
   },
   legal: {
     marginTop: 20,
