@@ -25,7 +25,7 @@ export function StudySpotsScreen() {
       ))}
       <AppCard muted>
         <Text style={styles.mapHint}>
-          Next: Expo Maps / web map with Convex `study_spots` pins and filters (quiet, power, hours).
+          An interactive map with hours, quiet zones, and power outlets is coming soon.
         </Text>
       </AppCard>
     </PlaceholderScreen>

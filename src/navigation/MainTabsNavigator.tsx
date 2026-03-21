@@ -17,18 +17,8 @@ export function MainTabsNavigator() {
   return (
     <Tab.Navigator
       screenOptions={{
-        headerTitleAlign: "center",
-        headerStyle: {
-          backgroundColor: colors.backgroundElevated,
-          shadowOpacity: 0,
-          borderBottomWidth: 1,
-          borderBottomColor: colors.border
-        },
-        headerTitleStyle: {
-          fontWeight: "700",
-          fontSize: 17,
-          color: colors.textPrimary
-        },
+        /** Title + Log out live in `ScreenContainer` (`tabTitle`). */
+        headerShown: false,
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.tabInactive,
         tabBarStyle: {
@@ -74,15 +64,7 @@ export function MainTabsNavigator() {
         component={LeaderboardScreen}
         options={{ tabBarIcon: tabBarGlyph("T") }}
       />
-      <Tab.Screen
-        name="Profile"
-        component={ProfileScreen}
-        options={{
-          tabBarIcon: tabBarGlyph("P"),
-          /** In-screen header + log out (tab header is unreliable on web / nested stack). */
-          headerShown: false
-        }}
-      />
+      <Tab.Screen name="Profile" component={ProfileScreen} options={{ tabBarIcon: tabBarGlyph("P") }} />
     </Tab.Navigator>
   );
 }

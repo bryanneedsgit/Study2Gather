@@ -12,7 +12,7 @@ const SUGGESTED = [
 
 export function DiscoverScreen() {
   return (
-    <ScreenContainer>
+    <ScreenContainer tabTitle="Discover">
       <View style={styles.hero}>
         <Text style={styles.heroEyebrow}>Study2Gather</Text>
         <Text style={styles.heroTitle}>Find your study crew</Text>
@@ -44,10 +44,10 @@ export function DiscoverScreen() {
       ))}
 
       <AppCard muted style={styles.hintCard}>
-        <Text style={styles.hintTitle}>How matching will work</Text>
+        <Text style={styles.hintTitle}>How matching works</Text>
         <Text style={styles.hintBody}>
-          We’ll rank overlap in courses, schedules, and focus goals. Connect Convex session data to replace this
-          preview with live results.
+          We prioritize overlap in courses, schedules, and study goals so you meet people who fit how you work.
+          Suggestions update as you add more to your profile.
         </Text>
       </AppCard>
     </ScreenContainer>

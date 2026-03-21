@@ -1,10 +1,9 @@
 import { useEffect, useRef } from "react";
 import { StatusBar } from "expo-status-bar";
 import { Animated, Easing, StyleSheet, Text, View } from "react-native";
-import { StudyNightBackground } from "@/components/study2gather/StudyNightBackground";
 import { LogoMark } from "@/components/study2gather/LogoMark";
-import { GradientTitle } from "@/components/study2gather/GradientTitle";
-import { studyNight } from "@/theme/studyNight";
+import { StudyBackground } from "@/components/study2gather/StudyBackground";
+import { sg } from "@/theme/study2gatherUi";
 
 export function SplashScreen() {
   const opacity = useRef(new Animated.Value(0)).current;
@@ -19,15 +18,15 @@ export function SplashScreen() {
   }, [opacity]);
 
   return (
-    <StudyNightBackground>
-      <StatusBar style="dark" />
+    <StudyBackground>
+      <StatusBar style="light" />
       <Animated.View style={[styles.center, { opacity }]} accessibilityRole="none">
         <View style={styles.logoWrap}>
           <View style={styles.glow} />
           <LogoMark size={96} />
         </View>
 
-        <GradientTitle fontSize={40}>Study2Gather</GradientTitle>
+        <Text style={styles.title}>Study2Gather</Text>
 
         <Text style={styles.tagline}>Beat burnout. Study together.</Text>
 
@@ -39,7 +38,7 @@ export function SplashScreen() {
           <Text style={styles.featureReward}>reward</Text>
         </View>
       </Animated.View>
-    </StudyNightBackground>
+    </StudyBackground>
   );
 }
 
@@ -64,10 +63,17 @@ const styles = StyleSheet.create({
     borderRadius: 60,
     backgroundColor: "rgba(16,185,129,0.15)"
   },
+  title: {
+    marginTop: 4,
+    fontSize: 40,
+    fontWeight: "900",
+    letterSpacing: -0.5,
+    color: sg.emerald
+  },
   tagline: {
     marginTop: 12,
     fontSize: 14,
-    color: studyNight.textMuted,
+    color: sg.textMuted,
     textAlign: "center"
   },
   featuresRow: {

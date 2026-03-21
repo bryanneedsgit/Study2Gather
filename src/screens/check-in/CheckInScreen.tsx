@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Linking,
@@ -10,10 +10,11 @@ import {
 } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as Location from "expo-location";
-import { useQueries } from "convex/react";
+import { useQuery } from "convex/react";
 import { useFocusEffect, useIsFocused } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppCard } from "@/components/AppCard";
+import { LogoutLink } from "@/components/HeaderLogoutButton";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { ScreenContainer } from "@/components/ScreenContainer";
 import { useSession } from "@/context/SessionContext";
@@ -38,20 +39,10 @@ export function CheckInScreen() {
   /** Block duplicate barcode events before React state updates (same frame). */
   const scanLockedRef = useRef(false);
 
-  const previewQueries = useMemo(
-    () =>
-      lastData
-        ? {
-            qrPreview: {
-              query: api.locationCheckIn.getQrLocationPreview,
-              args: { raw: lastData }
-            }
-          }
-        : {},
-    [lastData]
+  const venuePreview = useQuery(
+    api.locationCheckIn.getQrLocationPreview,
+    lastData ? { raw: lastData } : "skip"
   );
-  const previewResults = useQueries(previewQueries);
-  const venuePreview = previewResults["qrPreview"];
 
   const [androidCameraKey, setAndroidCameraKey] = useState(0);
 
@@ -142,41 +133,47 @@ export function CheckInScreen() {
     })();
   }, [failure, lastData, venuePreview, user?._id, runCheckIn]);
 
+  if (Platform.OS === "web") {
+    return (
+      <ScreenContainer tabTitle="Check in">
+        <Text style={styles.webBody}>
+          QR check-in needs the camera. Use the Study2Gather app on a phone or tablet for the best experience.
+        </Text>
+        <AppCard muted style={styles.webCard}>
+          <Text style={styles.webHint}>
+            Scanning in the browser isn&apos;t available yet — open this screen in the mobile app to scan codes.
+          </Text>
+        </AppCard>
+      </ScreenContainer>
+    );
+  }
+
   if (!permission) {
     return (
-      <View style={styles.centered}>
-        <ActivityIndicator color={colors.primary} size="large" />
-        <Text style={styles.permText}>Checking camera…</Text>
-      </View>
+      <ScreenContainer scroll={false} tabTitle="Check in">
+        <View style={styles.loadingBody}>
+          <ActivityIndicator color={colors.primary} size="large" />
+          <Text style={styles.permText}>Checking camera…</Text>
+        </View>
+      </ScreenContainer>
     );
   }
 
   if (!permission.granted) {
     const blockedNoPrompt = permission.canAskAgain === false;
     return (
-      <ScreenContainer>
+      <ScreenContainer tabTitle="Check in">
         <Text style={styles.permTitle}>Camera access</Text>
         {blockedNoPrompt ? (
           <>
             <Text style={styles.permBody}>
-              Camera permission was denied or blocked. You need to allow it in system or browser settings before
-              check-in can work.
+              Camera permission was denied or blocked. You need to allow it in system settings before check-in can
+              work.
             </Text>
-            {Platform.OS === "web" ? (
-              <Text style={styles.permBody}>
-                In Chrome: click the lock or “site information” icon in the address bar → Site settings → Camera →
-                Allow, then reload this page. Safari: Safari → Settings for This Website → Camera.
-              </Text>
-            ) : (
-              <Text style={styles.permBody}>
-                Open Settings → Study2Gather → enable Camera, then return here.
-              </Text>
-            )}
-            {Platform.OS !== "web" ? (
-              <PrimaryButton title="Open app settings" onPress={() => void Linking.openSettings()} />
-            ) : (
-              <PrimaryButton title="Try again" onPress={() => void requestPermission()} />
-            )}
+            <Text style={styles.permBody}>
+              Open Settings → Study2Gather → enable Camera, then return here.
+            </Text>
+            <PrimaryButton title="Open app settings" onPress={() => void Linking.openSettings()} />
           </>
         ) : (
           <>
@@ -203,13 +200,7 @@ export function CheckInScreen() {
       {/* Unmount when tab loses focus or when we’re done scanning — releases camera hardware. */}
       {cameraActive ? (
         <CameraView
-          key={
-            Platform.OS === "android"
-              ? `cam-${androidCameraKey}`
-              : Platform.OS === "web"
-                ? "cam-web"
-                : "cam-ios"
-          }
+          key={Platform.OS === "android" ? `cam-${androidCameraKey}` : "cam-native"}
           style={StyleSheet.absoluteFill}
           facing="back"
           mode="picture"
@@ -234,13 +225,13 @@ export function CheckInScreen() {
         ]}
         pointerEvents="box-none"
       >
-        <Text style={styles.headerTitle}>Check in</Text>
-        <Text style={styles.headerSubtitle}>Point your camera at the QR code</Text>
-        {Platform.OS === "web" ? (
-          <Text style={styles.webSecureHint}>
-            Camera needs a secure context: use https or localhost (blocked on plain http).
-          </Text>
-        ) : null}
+        <View style={styles.headerTopRow}>
+          <View style={styles.headerTextBlock}>
+            <Text style={styles.headerTitle}>Check in</Text>
+            <Text style={styles.headerSubtitle}>Point your camera at the QR code</Text>
+          </View>
+          <LogoutLink size="inline" tone="light" />
+        </View>
       </View>
 
       {lastData != null && !failure && !verified ? (
@@ -307,12 +298,13 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "#000"
   },
-  centered: {
+  loadingBody: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: colors.background,
-    gap: space.md
+    gap: space.md,
+    minHeight: 220,
+    paddingVertical: space.xl
   },
   permText: {
     fontSize: 15,
@@ -337,6 +329,16 @@ const styles = StyleSheet.create({
     right: 0,
     backgroundColor: "rgba(0,0,0,0.55)",
     paddingBottom: space.md
+  },
+  headerTopRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: space.md
+  },
+  headerTextBlock: {
+    flex: 1,
+    minWidth: 0
   },
   headerTitle: {
     fontSize: 22,
@@ -380,14 +382,22 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: colors.textPrimary
   },
+  webBody: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: colors.textSecondary,
+    marginBottom: space.lg
+  },
+  webCard: {
+    marginBottom: space.lg
+  },
+  webHint: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.textPrimary
+  },
   previewName: {
     fontWeight: "700"
-  },
-  webSecureHint: {
-    marginTop: 6,
-    fontSize: 12,
-    lineHeight: 16,
-    color: "rgba(255,255,255,0.75)"
   },
   fullOverlay: {
     ...StyleSheet.absoluteFillObject,

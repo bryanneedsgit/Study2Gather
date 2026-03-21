@@ -13,8 +13,7 @@ interface PlaceholderScreenProps {
 
 export function PlaceholderScreen({ title, subtitle, children, scroll = true }: PlaceholderScreenProps) {
   return (
-    <ScreenContainer scroll={scroll}>
-      <Text style={styles.title}>{title}</Text>
+    <ScreenContainer scroll={scroll} tabTitle={title}>
       <Text style={styles.subtitle}>{subtitle}</Text>
       <View style={styles.content}>{children}</View>
     </ScreenContainer>
@@ -22,13 +21,6 @@ export function PlaceholderScreen({ title, subtitle, children, scroll = true }: 
 }
 
 const styles = StyleSheet.create({
-  title: {
-    fontSize: 28,
-    fontWeight: "800",
-    color: colors.textPrimary,
-    letterSpacing: -0.6,
-    marginBottom: space.sm
-  },
   subtitle: {
     fontSize: 15,
     lineHeight: 22,
