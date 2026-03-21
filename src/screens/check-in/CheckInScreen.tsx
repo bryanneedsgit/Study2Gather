@@ -1,48 +1,146 @@
-import { useCallback, useState } from "react";
-import { ActivityIndicator, Platform, StyleSheet, Text, View } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  ActivityIndicator,
+  Linking,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View
+} from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
+import * as Location from "expo-location";
+import { useQueries } from "convex/react";
+import { useFocusEffect, useIsFocused } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppCard } from "@/components/AppCard";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { ScreenContainer } from "@/components/ScreenContainer";
+import { useSession } from "@/context/SessionContext";
+import { mapVenueCheckInError, useVenueCheckIn } from "@/hooks/useVenueCheckIn";
+import { api } from "@/lib/convexApi";
 import { colors } from "@/theme/colors";
 import { radius, space } from "@/theme/layout";
 
+type FailureState = { title: string; subtitle: string } | null;
+
 export function CheckInScreen() {
   const insets = useSafeAreaInsets();
+  const { user } = useSession();
+  const isFocused = useIsFocused();
   const [permission, requestPermission] = useCameraPermissions();
   const [lastData, setLastData] = useState<string | null>(null);
   const [paused, setPaused] = useState(false);
+  const gpsAttemptForPayload = useRef<string | null>(null);
+  const { runCheckIn, isCheckingIn } = useVenueCheckIn();
+  const [failure, setFailure] = useState<FailureState>(null);
+  const [verified, setVerified] = useState(false);
+  /** Block duplicate barcode events before React state updates (same frame). */
+  const scanLockedRef = useRef(false);
+
+  const previewQueries = useMemo(
+    () =>
+      lastData
+        ? {
+            qrPreview: {
+              query: api.locationCheckIn.getQrLocationPreview,
+              args: { raw: lastData }
+            }
+          }
+        : {},
+    [lastData]
+  );
+  const previewResults = useQueries(previewQueries);
+  const venuePreview = previewResults["qrPreview"];
+
+  const [androidCameraKey, setAndroidCameraKey] = useState(0);
+
+  /** Ask for camera + location every time this tab is focused (OS may not re-show dialog if already allowed). */
+  useFocusEffect(
+    useCallback(() => {
+      void requestPermission();
+      void Location.requestForegroundPermissionsAsync();
+    }, [requestPermission])
+  );
+
+  const resetScan = useCallback(() => {
+    setLastData(null);
+    setPaused(false);
+    setFailure(null);
+    setVerified(false);
+    scanLockedRef.current = false;
+    gpsAttemptForPayload.current = null;
+    if (Platform.OS === "android") {
+      setAndroidCameraKey((k) => k + 1);
+    }
+  }, []);
 
   const handleBarcodeScanned = useCallback(
     (event: { data: string }) => {
+      if (paused || scanLockedRef.current) return;
+      scanLockedRef.current = true;
+      void requestPermission();
       setLastData(event.data);
       setPaused(true);
+      setFailure(null);
+      setVerified(false);
+      gpsAttemptForPayload.current = null;
     },
-    []
+    [paused, requestPermission]
   );
 
-  const handleScanAgain = useCallback(() => {
-    setLastData(null);
-    setPaused(false);
-  }, []);
+  /** After a valid DB match + signed-in user: request location automatically and call Convex (lat/lng vs venue). */
+  useEffect(() => {
+    /** Don’t re-enter the pipeline while the failure overlay is up (prevents flicker / cleared state). */
+    if (failure) return;
+    if (!lastData) return;
+    if (venuePreview === undefined) return;
 
-  if (Platform.OS === "web") {
-    return (
-      <ScreenContainer>
-        <Text style={styles.webTitle}>Check in</Text>
-        <Text style={styles.webBody}>
-          QR scanning runs in the Study2Gather app on a phone or tablet (Expo Go or a dev build). Use the
-          iOS or Android tab in Expo, then open this tab to scan check-in codes with the camera.
-        </Text>
-        <AppCard muted style={styles.webCard}>
-          <Text style={styles.webHint}>
-            Web preview does not have camera-based QR scanning wired up yet.
-          </Text>
-        </AppCard>
-      </ScreenContainer>
-    );
-  }
+    if (venuePreview instanceof Error) {
+      const { userMessage } = mapVenueCheckInError(venuePreview.message);
+      setFailure({
+        title: "Verification failed",
+        subtitle: userMessage
+      });
+      return;
+    }
+
+    if (!venuePreview.ok) {
+      const { userMessage } = mapVenueCheckInError(venuePreview.error);
+      setFailure({
+        title: "Verification failed",
+        subtitle: userMessage
+      });
+      return;
+    }
+
+    if (!user?._id) {
+      setFailure({
+        title: "Verification failed",
+        subtitle: "Sign in to verify your location."
+      });
+      return;
+    }
+
+    if (gpsAttemptForPayload.current === lastData) return;
+    gpsAttemptForPayload.current = lastData;
+    setFailure(null);
+
+    void (async () => {
+      try {
+        await runCheckIn(lastData);
+        setVerified(true);
+        setFailure(null);
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        const { userMessage } = mapVenueCheckInError(message);
+        setFailure({
+          title: "Verification failed",
+          subtitle: userMessage
+        });
+      }
+    })();
+  }, [failure, lastData, venuePreview, user?._id, runCheckIn]);
 
   if (!permission) {
     return (
@@ -54,25 +152,76 @@ export function CheckInScreen() {
   }
 
   if (!permission.granted) {
+    const blockedNoPrompt = permission.canAskAgain === false;
     return (
       <ScreenContainer>
         <Text style={styles.permTitle}>Camera access</Text>
-        <Text style={styles.permBody}>
-          Allow camera access to scan check-in QR codes at study spots and events.
-        </Text>
-        <PrimaryButton title="Allow camera" onPress={() => void requestPermission()} />
+        {blockedNoPrompt ? (
+          <>
+            <Text style={styles.permBody}>
+              Camera permission was denied or blocked. You need to allow it in system or browser settings before
+              check-in can work.
+            </Text>
+            {Platform.OS === "web" ? (
+              <Text style={styles.permBody}>
+                In Chrome: click the lock or “site information” icon in the address bar → Site settings → Camera →
+                Allow, then reload this page. Safari: Safari → Settings for This Website → Camera.
+              </Text>
+            ) : (
+              <Text style={styles.permBody}>
+                Open Settings → Study2Gather → enable Camera, then return here.
+              </Text>
+            )}
+            {Platform.OS !== "web" ? (
+              <PrimaryButton title="Open app settings" onPress={() => void Linking.openSettings()} />
+            ) : (
+              <PrimaryButton title="Try again" onPress={() => void requestPermission()} />
+            )}
+          </>
+        ) : (
+          <>
+            <Text style={styles.permBody}>
+              Allow camera access to scan check-in QR codes at study spots and events. If you dismissed the prompt,
+              tap below to try again.
+            </Text>
+            <PrimaryButton title="Allow camera" onPress={() => void requestPermission()} />
+          </>
+        )}
       </ScreenContainer>
     );
   }
 
+  /** Stop the camera while showing result overlays or after a scan is in progress (until reset). */
+  const cameraActive =
+    isFocused &&
+    !failure &&
+    !verified &&
+    !(paused && lastData != null);
+
   return (
     <View style={styles.root}>
-      <CameraView
-        style={StyleSheet.absoluteFill}
-        facing="back"
-        barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
-        onBarcodeScanned={paused ? undefined : handleBarcodeScanned}
-      />
+      {/* Unmount when tab loses focus or when we’re done scanning — releases camera hardware. */}
+      {cameraActive ? (
+        <CameraView
+          key={
+            Platform.OS === "android"
+              ? `cam-${androidCameraKey}`
+              : Platform.OS === "web"
+                ? "cam-web"
+                : "cam-ios"
+          }
+          style={StyleSheet.absoluteFill}
+          facing="back"
+          mode="picture"
+          barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
+          onBarcodeScanned={handleBarcodeScanned}
+          onMountError={(e) => {
+            console.warn("[CheckIn] Camera mount error:", e.message);
+          }}
+        />
+      ) : (
+        <View style={styles.cameraOff} />
+      )}
 
       <View
         style={[
@@ -87,9 +236,14 @@ export function CheckInScreen() {
       >
         <Text style={styles.headerTitle}>Check in</Text>
         <Text style={styles.headerSubtitle}>Point your camera at the QR code</Text>
+        {Platform.OS === "web" ? (
+          <Text style={styles.webSecureHint}>
+            Camera needs a secure context: use https or localhost (blocked on plain http).
+          </Text>
+        ) : null}
       </View>
 
-      {lastData != null ? (
+      {lastData != null && !failure && !verified ? (
         <View
           style={[
             styles.footer,
@@ -105,8 +259,39 @@ export function CheckInScreen() {
             <Text style={styles.resultData} selectable>
               {lastData}
             </Text>
-            <PrimaryButton title="Scan again" onPress={handleScanAgain} variant="secondary" />
+            <Text style={styles.resultLabel}>Status</Text>
+            {venuePreview === undefined || isCheckingIn ? (
+              <Text style={styles.previewPending}>Verifying venue and location…</Text>
+            ) : venuePreview instanceof Error ? (
+              <Text style={styles.previewPending}>Couldn’t verify this code.</Text>
+            ) : venuePreview.ok ? (
+              <Text style={styles.previewOk}>
+                Venue found: <Text style={styles.previewName}>{venuePreview.name}</Text>
+              </Text>
+            ) : null}
           </AppCard>
+        </View>
+      ) : null}
+
+      {failure ? (
+        <View style={[styles.fullOverlay, styles.failOverlay, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 }]}>
+          <Text style={styles.overlayTitle}>{failure.title}</Text>
+          <Text style={styles.overlaySubtitle}>{failure.subtitle}</Text>
+          <Pressable style={styles.overlayBtn} onPress={resetScan}>
+            <Text style={styles.overlayBtnText}>Scan again</Text>
+          </Pressable>
+        </View>
+      ) : null}
+
+      {verified ? (
+        <View style={[styles.fullOverlay, styles.okOverlay, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 }]}>
+          <Text style={styles.overlayTitle}>Verified</Text>
+          <Text style={styles.overlaySubtitle}>
+            Your location matches the venue. You can start lock-in from the Lock-In tab.
+          </Text>
+          <Pressable style={styles.overlayBtnLight} onPress={resetScan}>
+            <Text style={styles.overlayBtnTextDark}>Scan again</Text>
+          </Pressable>
         </View>
       ) : null}
     </View>
@@ -116,6 +301,10 @@ export function CheckInScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
+    backgroundColor: "#000"
+  },
+  cameraOff: {
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: "#000"
   },
   centered: {
@@ -182,25 +371,71 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     marginBottom: space.md
   },
-  webTitle: {
-    fontSize: 28,
-    fontWeight: "800",
-    color: colors.textPrimary,
-    letterSpacing: -0.6,
-    marginBottom: space.sm
+  previewPending: {
+    fontSize: 14,
+    color: colors.textSecondary
   },
-  webBody: {
-    fontSize: 15,
-    lineHeight: 22,
-    color: colors.textSecondary,
-    marginBottom: space.lg
-  },
-  webCard: {
-    marginBottom: space.lg
-  },
-  webHint: {
+  previewOk: {
     fontSize: 14,
     lineHeight: 20,
-    color: colors.textSecondary
+    color: colors.textPrimary
+  },
+  previewName: {
+    fontWeight: "700"
+  },
+  webSecureHint: {
+    marginTop: 6,
+    fontSize: 12,
+    lineHeight: 16,
+    color: "rgba(255,255,255,0.75)"
+  },
+  fullOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: space.lg,
+    zIndex: 100
+  },
+  failOverlay: {
+    backgroundColor: "#7f1d1d"
+  },
+  okOverlay: {
+    backgroundColor: "#14532d"
+  },
+  overlayTitle: {
+    fontSize: 26,
+    fontWeight: "800",
+    color: "#fff",
+    textAlign: "center",
+    marginBottom: space.md
+  },
+  overlaySubtitle: {
+    fontSize: 16,
+    lineHeight: 24,
+    color: "rgba(255,255,255,0.92)",
+    textAlign: "center",
+    marginBottom: space.xl
+  },
+  overlayBtn: {
+    backgroundColor: "#fff",
+    paddingVertical: 14,
+    paddingHorizontal: 28,
+    borderRadius: radius.md
+  },
+  overlayBtnLight: {
+    backgroundColor: "rgba(255,255,255,0.95)",
+    paddingVertical: 14,
+    paddingHorizontal: 28,
+    borderRadius: radius.md
+  },
+  overlayBtnText: {
+    fontSize: 17,
+    fontWeight: "700",
+    color: "#7f1d1d"
+  },
+  overlayBtnTextDark: {
+    fontSize: 17,
+    fontWeight: "700",
+    color: "#14532d"
   }
 });

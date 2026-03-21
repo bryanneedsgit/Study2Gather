@@ -3,11 +3,11 @@ import { v } from "convex/values";
 import {
   COOLDOWN_AFTER_CAP_MS,
   MAX_SESSION_MINUTES,
-  POINTS_PER_ELIGIBLE_MINUTE,
-  eligibleMinutesExcludingNightWindow,
+  POINTS_PER_ELIGIBLE_SECOND,
+  eligibleMsExcludingNightWindow,
   isInNoPointsNightWindowLocalHour,
   localHourFromUtcMs,
-  pointsFromEligibleMinutes
+  pointsFromEligibleMs
 } from "./rules";
 import { userPointsBalance } from "./userPoints";
 
@@ -70,7 +70,7 @@ export const enforceRules = queryGeneric({
     const user = await ctx.db.get(args.userId);
     const hour = localHourFromUtcMs(args.nowMs, args.timezoneOffsetMinutes);
     return {
-      pointsPerEligibleMinute: POINTS_PER_ELIGIBLE_MINUTE,
+      pointsPerEligibleSecond: POINTS_PER_ELIGIBLE_SECOND,
       maxSessionMinutes: MAX_SESSION_MINUTES,
       cooldownAfterCapMs: COOLDOWN_AFTER_CAP_MS,
       nightWindowLocalHours: { start: 0, end: 6 },
@@ -207,12 +207,12 @@ export const completeSession = mutationGeneric({
     const cappedMs = Math.min(rawMs, MAX_SESSION_MINUTES * 60 * 1000);
     const durationMinutes = Math.floor(cappedMs / 60000);
 
-    const eligibleMinutes = eligibleMinutesExcludingNightWindow(
+    const eligibleMs = eligibleMsExcludingNightWindow(
       session.started_at,
       args.endedAtMs,
       args.timezoneOffsetMinutes
     );
-    const points = pointsFromEligibleMinutes(eligibleMinutes);
+    const points = pointsFromEligibleMs(eligibleMs);
 
     await ctx.db.patch(args.sessionId, {
       ended_at: args.endedAtMs,

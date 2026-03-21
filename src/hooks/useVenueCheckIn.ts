@@ -11,6 +11,8 @@ export type VenueCheckInErrorCode =
   | "invalid_qr"
   | "spot_not_found"
   | "cafe_not_found"
+  | "location_not_found"
+  | "invalid_id"
   | "location_too_far"
   | "unknown";
 
@@ -37,8 +39,26 @@ export function mapVenueCheckInError(message: string): { code: VenueCheckInError
       userMessage: "You don't appear to be close enough to this venue. Move closer and try again."
     };
   }
-  if (m.includes("spot_not_found") || m.includes("cafe_not_found")) {
-    return { code: "spot_not_found", userMessage: "This QR code isn't linked to a valid venue in our system." };
+  if (
+    m.includes("invalid_id") ||
+    m.includes("invalid id") ||
+    m.includes("unable to decode id")
+  ) {
+    return {
+      code: "invalid_id",
+      userMessage:
+        "This QR code doesn’t contain a valid venue ID. Scan the official Study2Gather code for this location."
+    };
+  }
+  if (
+    m.includes("spot_not_found") ||
+    m.includes("cafe_not_found") ||
+    m.includes("location_not_found")
+  ) {
+    return {
+      code: "spot_not_found",
+      userMessage: "This QR code isn't linked to a valid café or study spot in our system."
+    };
   }
   if (m.includes("invalid_coordinates")) {
     return { code: "invalid_coordinates", userMessage: "Invalid GPS reading. Try again." };
@@ -59,8 +79,8 @@ export function mapVenueCheckInError(message: string): { code: VenueCheckInError
 }
 
 /**
- * Requests foreground GPS, then calls Convex `completeLocationCheckIn` with `raw` QR payload.
- * Use this after the scanner returns the raw string (or paste for testing).
+ * Requests foreground location on **every** call, then calls Convex `completeLocationCheckIn`.
+ * (iOS/Android may not show the system sheet again if permission is already granted.)
  */
 export function useVenueCheckIn() {
   const complete = useMutation(api.locationCheckIn.completeLocationCheckIn);

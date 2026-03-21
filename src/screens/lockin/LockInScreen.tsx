@@ -1,11 +1,8 @@
-import { useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Button,
   StyleSheet,
   Text,
-  TextInput,
   View
 } from "react-native";
 import { useQuery } from "convex/react";
@@ -15,7 +12,6 @@ import { PrimaryButton } from "@/components/PrimaryButton";
 import { useSession } from "@/context/SessionContext";
 import { useLockInSession } from "@/context/LockInSessionContext";
 import { api } from "@/lib/convexApi";
-import { mapVenueCheckInError, useVenueCheckIn } from "@/hooks/useVenueCheckIn";
 import { colors } from "@/theme/colors";
 import { space } from "@/theme/layout";
 
@@ -24,8 +20,6 @@ export function LockInScreen() {
   const { isLockedIn, startLockIn } = useLockInSession();
   const policy = useQuery(api.lockInSolo.getLockInPointsPolicy, {});
   const locationCheckIn = useQuery(api.locationCheckIn.getActiveLocationCheckIn, user?._id ? {} : "skip");
-  const { runCheckIn, isCheckingIn } = useVenueCheckIn();
-  const [qrDraft, setQrDraft] = useState("");
 
   const canStart = Boolean(
     user?._id && user && !isLockedIn && locationCheckIn !== undefined && locationCheckIn !== null
@@ -40,17 +34,6 @@ export function LockInScreen() {
     }
   }
 
-  async function onVerifyLocation() {
-    try {
-      await runCheckIn(qrDraft);
-      setQrDraft("");
-    } catch (e) {
-      const message = e instanceof Error ? e.message : String(e);
-      const { userMessage } = mapVenueCheckInError(message);
-      Alert.alert("Check-in failed", userMessage);
-    }
-  }
-
   const loadingPolicy = policy === undefined || locationCheckIn === undefined;
 
   return (
@@ -62,7 +45,7 @@ export function LockInScreen() {
           <Text style={styles.heading}>How points work</Text>
           <Text style={styles.body}>{policy.description}</Text>
           <Text style={styles.bullet}>
-            • {policy.pointsPerEligibleMinute} point per minute of eligible focus time
+            • {policy.pointsPerEligibleSecond} point per second of eligible focus time
           </Text>
           <Text style={styles.bullet}>• Max session length for points: {policy.maxSessionMinutes} minutes</Text>
           <Text style={styles.bullet}>
@@ -80,27 +63,10 @@ export function LockInScreen() {
         <View style={styles.checkInCard}>
           <Text style={styles.checkInTitle}>Venue check-in</Text>
           {locationCheckIn === null ? (
-            <>
-              <Text style={styles.muted}>
-                Scan the venue QR code (or paste the raw payload below for testing). We request your location once to
-                confirm you&apos;re at the recorded spot — then you can start locked in.
-              </Text>
-              <TextInput
-                style={styles.qrInput}
-                placeholder='e.g. s2g:spot:… or {"v":1,"t":"spot","id":"…"}'
-                placeholderTextColor="#9ca3af"
-                value={qrDraft}
-                onChangeText={setQrDraft}
-                autoCapitalize="none"
-                autoCorrect={false}
-                editable={!isCheckingIn}
-              />
-              <Button
-                title={isCheckingIn ? "Getting location…" : "Verify location & unlock"}
-                onPress={() => void onVerifyLocation()}
-                disabled={isCheckingIn || !qrDraft.trim()}
-              />
-            </>
+            <Text style={styles.muted}>
+              Use the <Text style={styles.bold}>Check in</Text> tab: scan the venue QR. We verify the code against our
+              database, then request your location and compare it to the venue&apos;s coordinates automatically.
+            </Text>
           ) : (
             <Text style={styles.checkedIn}>
               ✓ Checked in{locationCheckIn.locationName ? ` at ${locationCheckIn.locationName}` : ""}. You can start
@@ -123,7 +89,7 @@ export function LockInScreen() {
             {!isLockedIn ? (
               <Text style={styles.muted}>
                 {locationCheckIn === null
-                  ? "Complete venue check-in above first — then Start locked in unlocks."
+                  ? "Complete check-in on the Check-in tab first (scan QR + location) — then Start locked in unlocks."
                   : "Starts a fullscreen session with a live timer. Tap \"End locked in\" to finish — points are added automatically from eligible duration."}
               </Text>
             ) : null}
@@ -157,15 +123,8 @@ const styles = StyleSheet.create({
     color: "#15803d",
     lineHeight: 20
   },
-  qrInput: {
-    borderWidth: 1,
-    borderColor: "#cbd5e1",
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: "#111827",
-    backgroundColor: "#fff"
+  bold: {
+    fontWeight: "700"
   },
   heading: {
     fontSize: 17,

@@ -8,11 +8,11 @@ import { v } from "convex/values";
 import {
   COOLDOWN_AFTER_CAP_MS,
   MAX_SESSION_MINUTES,
-  POINTS_PER_ELIGIBLE_MINUTE,
-  eligibleMinutesExcludingNightWindow,
+  POINTS_PER_ELIGIBLE_SECOND,
+  eligibleMsExcludingNightWindow,
   isInNoPointsNightWindowLocalHour,
   localHourFromUtcMs,
-  pointsFromEligibleMinutes
+  pointsFromEligibleMs
 } from "./rules";
 import { userPointsBalance } from "./userPoints";
 
@@ -21,12 +21,12 @@ export const getLockInPointsPolicy = queryGeneric({
   args: {},
   handler: async () => {
     return {
-      pointsPerEligibleMinute: POINTS_PER_ELIGIBLE_MINUTE,
+      pointsPerEligibleSecond: POINTS_PER_ELIGIBLE_SECOND,
       maxSessionMinutes: MAX_SESSION_MINUTES,
       cooldownAfterCapHours: COOLDOWN_AFTER_CAP_MS / (60 * 60 * 1000),
       nightWindowLocalHours: { start: 0, end: 6 },
       description:
-        "Earn 1 point per eligible minute (outside 00:00–06:00 local). Sessions longer than maxSessionMinutes cap at that duration for points."
+        "Earn 1 point per full second of eligible time (raw stopwatch ms outside 00:00–06:00 local). Example: 1m 6s → 66 points. Sessions longer than maxSessionMinutes cap for points."
     };
   }
 });
@@ -127,12 +127,12 @@ export const endSoloLockIn = mutationGeneric({
     const cappedMs = Math.min(rawMs, MAX_SESSION_MINUTES * 60 * 1000);
     const durationMinutes = Math.floor(cappedMs / 60000);
 
-    const eligibleMinutes = eligibleMinutesExcludingNightWindow(
+    const eligibleMs = eligibleMsExcludingNightWindow(
       session.started_at,
       args.endedAtMs,
       args.timezoneOffsetMinutes
     );
-    const points = pointsFromEligibleMinutes(eligibleMinutes);
+    const points = pointsFromEligibleMs(eligibleMs);
 
     await ctx.db.patch(args.sessionId, {
       ended_at: args.endedAtMs,
@@ -155,8 +155,9 @@ export const endSoloLockIn = mutationGeneric({
     return {
       pointsAwarded: points,
       durationMinutes,
-      pointsPerEligibleMinute: POINTS_PER_ELIGIBLE_MINUTE,
-      eligibleMinutesCounted: eligibleMinutes
+      pointsPerEligibleSecond: POINTS_PER_ELIGIBLE_SECOND,
+      eligibleMsCounted: eligibleMs,
+      eligibleSecondsCounted: Math.floor(eligibleMs / 1000)
     };
   }
 });

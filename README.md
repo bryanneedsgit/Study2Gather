@@ -141,6 +141,20 @@ Expo exposes variables prefixed with `EXPO_PUBLIC_` to the app runtime.
   - query: `queries:getBackendHealth`
   - mutation: `mutations:incrementTestCounter`
 
+### Test café locations (`convex/seed.ts`)
+
+Insert sample rows into `cafe_locations` (Singapore-area coords; safe to re-run — skips rows that already match by **name**):
+
+```bash
+npx convex run seed:seedCafeLocations
+```
+
+To insert duplicates anyway (not usually needed):
+
+```bash
+npx convex run seed:seedCafeLocations '{"forceDuplicateNames": true}'
+```
+
 ### Auth API (`convex/auth.ts`)
 
 | Function | Type | Purpose |

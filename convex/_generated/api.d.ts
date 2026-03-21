@@ -24,6 +24,7 @@ import type * as queries from "../queries.js";
 import type * as rewards from "../rewards.js";
 import type * as rules from "../rules.js";
 import type * as schoolOptions from "../schoolOptions.js";
+import type * as seed from "../seed.js";
 import type * as sessionUser from "../sessionUser.js";
 import type * as studySessions from "../studySessions.js";
 import type * as studySpots from "../studySpots.js";
@@ -53,6 +54,7 @@ declare const fullApi: ApiFromModules<{
   rewards: typeof rewards;
   rules: typeof rules;
   schoolOptions: typeof schoolOptions;
+  seed: typeof seed;
   sessionUser: typeof sessionUser;
   studySessions: typeof studySessions;
   studySpots: typeof studySpots;

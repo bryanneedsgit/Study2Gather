@@ -1,11 +1,16 @@
 /**
  * QR + GPS check-in flow for gating solo lock-in.
+ *
+ * Flow: scanned value → resolve to a `cafe_locations` or `study_spots` row by `_id` →
+ * compare device GPS to that row’s `lat` / `lng` (Haversine, see CHECK_IN_RADIUS_METERS).
+ *
  * @see docs/LOCK_IN_QR.md for payload format (for the scanner UI).
  */
 import { getAuthUserId } from "@convex-dev/auth/server";
+import type { GenericMutationCtx, GenericQueryCtx } from "convex/server";
 import { mutationGeneric, queryGeneric } from "convex/server";
 import { v } from "convex/values";
-import type { Id } from "./_generated/dataModel";
+import type { DataModel, Doc, Id } from "./_generated/dataModel";
 import { distanceMeters } from "./geoUtils";
 
 /** Max distance from recorded lat/lng to accept GPS (meters). */
@@ -66,6 +71,123 @@ export function parseQrPayload(raw: string): { ok: true; parsed: ParsedQr } | { 
   return { ok: false, error: "invalid_kind" };
 }
 
+/** Convex document ids are opaque strings; bare-id QR uses this heuristic before `db.get`. */
+function isPlausibleBareConvexId(s: string): boolean {
+  return s.length >= 16 && s.length <= 40 && /^[a-z0-9_]+$/i.test(s);
+}
+
+export type ResolvedCheckInLocation =
+  | {
+      ok: true;
+      kind: "cafe";
+      cafeId: Id<"cafe_locations">;
+      name: string;
+      lat: number;
+      lng: number;
+    }
+  | {
+      ok: true;
+      kind: "study_spot";
+      studySpotId: Id<"study_spots">;
+      name: string;
+      lat: number;
+      lng: number;
+    }
+  | { ok: false; error: string };
+
+/**
+ * Map QR text → venue row: validates `_id` exists in `cafe_locations` or `study_spots`,
+ * returns stored `lat` / `lng` for GPS comparison.
+ *
+ * Supports:
+ * - `s2g:cafe:<_id>` / `s2g:spot:<_id>` and JSON `{ "v":1, "t":"cafe"|"spot", "id":"..." }`
+ * - **Bare `_id`**: if the string matches a `cafe_locations` document (tried first), or `study_spots`
+ */
+type DbReadCtx = GenericQueryCtx<DataModel> | GenericMutationCtx<DataModel>;
+
+/** `db.get` throws if the string is not a valid Convex-encoded id (e.g. wrong length). */
+async function getByIdOrNull<T extends "cafe_locations" | "study_spots">(
+  ctx: DbReadCtx,
+  _table: T,
+  id: string
+): Promise<{ doc: Doc<T> } | "invalid_id" | null> {
+  try {
+    const doc = await ctx.db.get(id as Id<T>);
+    return doc ? { doc } : null;
+  } catch {
+    return "invalid_id";
+  }
+}
+
+export async function resolveLocationFromQr(
+  ctx: DbReadCtx,
+  raw: string
+): Promise<ResolvedCheckInLocation> {
+  const trimmed = raw.trim();
+  const parsed = parseQrPayload(trimmed);
+
+  if (parsed.ok) {
+    if (parsed.parsed.kind === "study_spot") {
+      const got = await getByIdOrNull(ctx, "study_spots", parsed.parsed.id);
+      if (got === "invalid_id") return { ok: false, error: "invalid_id" };
+      if (!got) return { ok: false, error: "spot_not_found" };
+      const spot = got.doc;
+      return {
+        ok: true,
+        kind: "study_spot",
+        studySpotId: spot._id,
+        name: spot.name,
+        lat: spot.lat,
+        lng: spot.lng
+      };
+    }
+    const got = await getByIdOrNull(ctx, "cafe_locations", parsed.parsed.id);
+    if (got === "invalid_id") return { ok: false, error: "invalid_id" };
+    if (!got) return { ok: false, error: "cafe_not_found" };
+    const cafe = got.doc;
+    return {
+      ok: true,
+      kind: "cafe",
+      cafeId: cafe._id,
+      name: cafe.name,
+      lat: cafe.lat,
+      lng: cafe.lng
+    };
+  }
+
+  if (isPlausibleBareConvexId(trimmed)) {
+    const cafeGot = await getByIdOrNull(ctx, "cafe_locations", trimmed);
+    if (cafeGot === "invalid_id") return { ok: false, error: "invalid_id" };
+    if (cafeGot) {
+      const cafe = cafeGot.doc;
+      return {
+        ok: true,
+        kind: "cafe",
+        cafeId: cafe._id,
+        name: cafe.name,
+        lat: cafe.lat,
+        lng: cafe.lng
+      };
+    }
+    const spotGot = await getByIdOrNull(ctx, "study_spots", trimmed);
+    if (spotGot === "invalid_id") return { ok: false, error: "invalid_id" };
+    if (spotGot) {
+      const spot = spotGot.doc;
+      return {
+        ok: true,
+        kind: "study_spot",
+        studySpotId: spot._id,
+        name: spot.name,
+        lat: spot.lat,
+        lng: spot.lng
+      };
+    }
+    return { ok: false, error: "location_not_found" };
+  }
+
+  return { ok: false, error: parsed.error };
+}
+
 /** Public: parse only (no DB). For client-side preview. */
 export const parseQrCode = queryGeneric({
   args: { raw: v.string() },
@@ -78,31 +200,27 @@ export const parseQrCode = queryGeneric({
 export const getQrLocationPreview = queryGeneric({
   args: { raw: v.string() },
   handler: async (ctx, args) => {
-    const parsed = parseQrPayload(args.raw);
-    if (!parsed.ok) {
-      return { ok: false as const, error: parsed.error };
+    const resolved = await resolveLocationFromQr(ctx, args.raw);
+    if (!resolved.ok) {
+      return { ok: false as const, error: resolved.error };
     }
-    if (parsed.parsed.kind === "study_spot") {
-      const spot = await ctx.db.get(parsed.parsed.id);
-      if (!spot) return { ok: false as const, error: "spot_not_found" };
+    if (resolved.kind === "study_spot") {
       return {
         ok: true as const,
         kind: "study_spot" as const,
-        id: spot._id,
-        name: spot.name,
-        lat: spot.lat,
-        lng: spot.lng
+        id: resolved.studySpotId,
+        name: resolved.name,
+        lat: resolved.lat,
+        lng: resolved.lng
       };
     }
-    const cafe = await ctx.db.get(parsed.parsed.id);
-    if (!cafe) return { ok: false as const, error: "cafe_not_found" };
     return {
       ok: true as const,
       kind: "cafe" as const,
-      id: cafe._id,
-      name: cafe.name,
-      lat: cafe.lat,
-      lng: cafe.lng
+      id: resolved.cafeId,
+      name: resolved.name,
+      lat: resolved.lat,
+      lng: resolved.lng
     };
   }
 });
@@ -165,27 +283,15 @@ export const completeLocationCheckIn = mutationGeneric({
       throw new Error("invalid_coordinates");
     }
 
-    const parsed = parseQrPayload(args.raw);
-    if (!parsed.ok) throw new Error(parsed.error);
+    const resolved = await resolveLocationFromQr(ctx, args.raw);
+    if (!resolved.ok) throw new Error(resolved.error);
 
-    let lat: number;
-    let lng: number;
-    let studySpotId: Id<"study_spots"> | undefined;
-    let cafeId: Id<"cafe_locations"> | undefined;
-
-    if (parsed.parsed.kind === "study_spot") {
-      const spot = await ctx.db.get(parsed.parsed.id);
-      if (!spot) throw new Error("spot_not_found");
-      lat = spot.lat;
-      lng = spot.lng;
-      studySpotId = spot._id;
-    } else {
-      const cafe = await ctx.db.get(parsed.parsed.id);
-      if (!cafe) throw new Error("cafe_not_found");
-      lat = cafe.lat;
-      lng = cafe.lng;
-      cafeId = cafe._id;
-    }
+    const lat = resolved.lat;
+    const lng = resolved.lng;
+    const studySpotId: Id<"study_spots"> | undefined =
+      resolved.kind === "study_spot" ? resolved.studySpotId : undefined;
+    const cafeId: Id<"cafe_locations"> | undefined =
+      resolved.kind === "cafe" ? resolved.cafeId : undefined;
 
     const d = distanceMeters({ lat, lng }, { lat: args.latitude, lng: args.longitude });
     if (d > CHECK_IN_RADIUS_METERS) {
