@@ -88,6 +88,7 @@ This project uses **Expo + React Native + TypeScript** because it is the most re
 │   ├── cafe.ts
 │   ├── rewards.ts
 │   ├── leaderboard.ts
+│   ├── studySpots.ts
 │   └── rules.ts
 └── supabase
     ├── schema.sql
@@ -177,6 +178,16 @@ Container-only session state (no lock-in validation). Use this as the base layer
 | `getActiveSessionByGroup` | query | Active session for a group, if any |
 | `endSession` | mutation | Close `pending` or `active` → `completed` or `failed`; sets `ended_at`, `duration_minutes`, `points_awarded`, `ended_reason` |
 | `activateSession` | mutation | `pending` → `active`; refreshes `started_at` for duration |
+
+### Study spots (`convex/studySpots.ts`)
+
+Map/discovery POIs (`study_spots` table). Separate from **`cafe_locations`** (capacity & reservations). Nearby uses Haversine in memory — fine for hackathon dataset sizes.
+
+| Function | Type | Purpose |
+|----------|------|---------|
+| `getNearbyStudySpots` | query | `lat`, `lng`, optional `limit`, `maxDistanceKm`; returns `spots` with `distanceKm` / `distanceMeters`, sorted nearest-first |
+| `getPartnerStudySpots` | query | `is_partner === true`, sorted by name |
+| `getStudySpotById` | query | Single spot or `null` |
 
 ### Cafe (`convex/cafe.ts`)
 
