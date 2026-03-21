@@ -13,6 +13,7 @@ import type * as cafe from "../cafe.js";
 import type * as lockIn from "../lockIn.js";
 import type * as mutations from "../mutations.js";
 import type * as queries from "../queries.js";
+import type * as rewards from "../rewards.js";
 import type * as rules from "../rules.js";
 import type * as studySessions from "../studySessions.js";
 
@@ -28,6 +29,7 @@ declare const fullApi: ApiFromModules<{
   lockIn: typeof lockIn;
   mutations: typeof mutations;
   queries: typeof queries;
+  rewards: typeof rewards;
   rules: typeof rules;
   studySessions: typeof studySessions;
 }>;

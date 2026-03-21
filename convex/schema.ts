@@ -41,6 +41,8 @@ const couponPurchaseStatus = v.union(
   v.literal("refunded")
 );
 
+const rewardRedemptionStatus = v.union(v.literal("completed"));
+
 export default defineSchema({
   users: defineTable({
     /** Normalized lowercase email — unique identity for demo / email-first auth (upgrade to Convex Auth later). */
@@ -185,5 +187,41 @@ export default defineSchema({
     .index("by_user", ["user_id"])
     .index("by_cafe", ["cafe_id"])
     .index("by_reservation", ["reservation_id"])
-    .index("by_status", ["status"])
+    .index("by_status", ["status"]),
+
+  /** Redeemable rewards (catalog). */
+  reward_catalog: defineTable({
+    title: v.string(),
+    description: v.optional(v.string()),
+    cost_points: v.number(),
+    active: v.boolean(),
+    created_at: v.number(),
+    sort_order: v.optional(v.number())
+  }).index("by_active", ["active"]),
+
+  /** Successful reward redemptions (audit). */
+  reward_redemptions: defineTable({
+    user_id: v.id("users"),
+    reward_id: v.id("reward_catalog"),
+    points_spent: v.number(),
+    status: rewardRedemptionStatus,
+    created_at: v.number()
+  })
+    .index("by_user", ["user_id"])
+    .index("by_reward", ["reward_id"])
+    .index("by_user_created", ["user_id", "created_at"]),
+
+  /**
+   * Append-only ledger for point changes made through `rewards:addPoints` / `rewards:deductPoints` / `rewards:redeemReward`.
+   * Lock-in and cafe flows may still update `users.points_total` directly until migrated to call these mutations.
+   */
+  points_ledger: defineTable({
+    user_id: v.id("users"),
+    delta: v.number(),
+    reason: v.optional(v.string()),
+    balance_after: v.number(),
+    created_at: v.number()
+  })
+    .index("by_user", ["user_id"])
+    .index("by_user_created", ["user_id", "created_at"])
 });

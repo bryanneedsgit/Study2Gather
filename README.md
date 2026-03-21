@@ -85,6 +85,7 @@ This project uses **Expo + React Native + TypeScript** because it is the most re
 │   ├── lockIn.ts
 │   ├── studySessions.ts
 │   ├── cafe.ts
+│   ├── rewards.ts
 │   └── rules.ts
 └── supabase
     ├── schema.sql
@@ -180,6 +181,19 @@ Container-only session state (no lock-in validation). Use this as the base layer
 | `finalizeCouponPurchase` | mutation | Converts hold, increments cafe occupancy, creates reservation + coupon, optional tutor points |
 | `releaseExpiredSeatHolds` | mutation | Marks expired active holds |
 | `verifyCafePresence` | mutation | Marks reservation verified / completed |
+
+### Rewards (`convex/rewards.ts`)
+
+Uses **`users.points_total`** as the balance (same field as lock-in / cafe). Append-only **`points_ledger`** records changes made through these mutations; older flows may still patch `points_total` directly until migrated.
+
+| Function | Type | Purpose |
+|----------|------|---------|
+| `addPoints` | mutation | Add positive integer points; optional `reason`; writes ledger row |
+| `deductPoints` | mutation | Subtract points; throws `insufficient_points` if balance would go negative |
+| `getUserPoints` | query | `{ pointsTotal }` or `null` |
+| `getAvailableRewards` | query | Active rows from `reward_catalog` (insert catalog docs via dashboard or script) |
+| `redeemReward` | mutation | Validates reward active + balance; deducts; creates `reward_redemptions` row; returns `{ ok, ... }` |
+| `seedGermanStudentRewardCatalog` | mutation | Idempotent: inserts 13 DE/EU‑themed catalog items (Mensa, Döner, DB/Flix, Lieferando, dm, Kino, etc.) if the catalog is empty — run once from the Convex dashboard |
 
 ## Notes
 
