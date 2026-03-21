@@ -83,6 +83,7 @@ This project uses **Expo + React Native + TypeScript** because it is the most re
 │   ├── queries.ts
 │   ├── mutations.ts
 │   ├── lockIn.ts
+│   ├── studySessions.ts
 │   ├── cafe.ts
 │   └── rules.ts
 └── supabase
@@ -157,6 +158,18 @@ All business rules run in Convex mutations/queries (not in the UI).
 | `startStudySession` | mutation | Validates rules, blocks duplicate active session, creates session + participant rows |
 | `updateSessionParticipantFlags` | mutation | Client reports foreground / proximity for a participant |
 | `completeSession` | mutation | Validates all participants, applies 60m intervals + 4h cap + night window, awards points, sets 2h cooldown if session hit 4h cap |
+
+### Study session lifecycle (`convex/studySessions.ts`)
+
+Container-only session state (no lock-in validation). Use this as the base layer; compose with `lockIn` later (e.g. validate → `startSession` / `endSession`).
+
+| Function | Type | Purpose |
+|----------|------|---------|
+| `startSession` | mutation | Creates a session for `groupId`; optional `initialStatus` `pending` \| `active` (default `active`). Rejects if the group already has a `pending` or `active` session. |
+| `getSession` | query | Load one session by id |
+| `getActiveSessionByGroup` | query | Active session for a group, if any |
+| `endSession` | mutation | Close `pending` or `active` → `completed` or `failed`; sets `ended_at`, `duration_minutes`, `points_awarded`, `ended_reason` |
+| `activateSession` | mutation | `pending` → `active`; refreshes `started_at` for duration |
 
 ### Cafe (`convex/cafe.ts`)
 

@@ -14,6 +14,7 @@ import type * as lockIn from "../lockIn.js";
 import type * as mutations from "../mutations.js";
 import type * as queries from "../queries.js";
 import type * as rules from "../rules.js";
+import type * as studySessions from "../studySessions.js";
 
 import type {
   ApiFromModules,
@@ -28,6 +29,7 @@ declare const fullApi: ApiFromModules<{
   mutations: typeof mutations;
   queries: typeof queries;
   rules: typeof rules;
+  studySessions: typeof studySessions;
 }>;
 
 /**
