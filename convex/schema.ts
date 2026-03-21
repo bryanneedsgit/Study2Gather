@@ -76,6 +76,8 @@ export default defineSchema({
     age: v.optional(v.number()),
     onboarding_completed: v.optional(v.boolean()),
     points: v.optional(v.number()),
+    /** Legacy name; prefer `points` for new writes. */
+    points_total: v.optional(v.number()),
     tier_status: v.optional(tierStatus),
     created_at: v.optional(v.number()),
     timezone_offset_minutes: v.optional(v.number()),

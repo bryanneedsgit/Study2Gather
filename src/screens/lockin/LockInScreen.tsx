@@ -9,11 +9,15 @@ import {
   View
 } from "react-native";
 import { useQuery } from "convex/react";
+import { AppCard } from "@/components/AppCard";
 import { PlaceholderScreen } from "@/components/PlaceholderScreen";
+import { PrimaryButton } from "@/components/PrimaryButton";
 import { useSession } from "@/context/SessionContext";
 import { useLockInSession } from "@/context/LockInSessionContext";
 import { api } from "@/lib/convexApi";
 import { mapVenueCheckInError, useVenueCheckIn } from "@/hooks/useVenueCheckIn";
+import { colors } from "@/theme/colors";
+import { space } from "@/theme/layout";
 
 export function LockInScreen() {
   const { user } = useSession();
@@ -51,10 +55,10 @@ export function LockInScreen() {
 
   return (
     <PlaceholderScreen title="Lock-In" subtitle="Solo focus session — earn points for eligible time.">
-      {loadingPolicy ? (
+      {policy === undefined ? (
         <ActivityIndicator />
       ) : (
-        <View style={styles.card}>
+        <AppCard style={styles.card}>
           <Text style={styles.heading}>How points work</Text>
           <Text style={styles.body}>{policy.description}</Text>
           <Text style={styles.bullet}>
@@ -69,7 +73,7 @@ export function LockInScreen() {
             • After hitting the max length, a {policy.cooldownAfterCapHours}h cooldown may apply before the next
             session
           </Text>
-        </View>
+        </AppCard>
       )}
 
       {user?._id && !isLockedIn && locationCheckIn !== undefined ? (
@@ -108,10 +112,10 @@ export function LockInScreen() {
 
       <View style={styles.actions}>
         {!user?._id ? (
-          <Text style={styles.muted}>Sign in from Profile to use Lock-In.</Text>
+          <Text style={styles.muted}>Sign in to use Lock-In.</Text>
         ) : (
           <>
-            <Button
+            <PrimaryButton
               title={isLockedIn ? "Session active (see fullscreen)" : "Start locked in"}
               onPress={() => void onStart()}
               disabled={!canStart}
@@ -132,8 +136,7 @@ export function LockInScreen() {
 
 const styles = StyleSheet.create({
   card: {
-    marginTop: 8,
-    marginBottom: 16
+    marginBottom: space.md
   },
   checkInCard: {
     marginBottom: 16,
@@ -165,30 +168,30 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff"
   },
   heading: {
-    fontSize: 16,
-    fontWeight: "700",
-    marginBottom: 8,
-    color: "#111827"
+    fontSize: 17,
+    fontWeight: "800",
+    marginBottom: space.sm,
+    color: colors.textPrimary
   },
   body: {
     fontSize: 14,
-    color: "#4b5563",
+    color: colors.textSecondary,
     lineHeight: 20,
-    marginBottom: 12
+    marginBottom: space.md
   },
   bullet: {
     fontSize: 13,
-    color: "#374151",
-    marginBottom: 6,
+    color: colors.textPrimary,
+    marginBottom: space.sm,
     lineHeight: 18
   },
   actions: {
-    gap: 12,
-    marginTop: 8
+    gap: space.md,
+    marginTop: space.sm
   },
   muted: {
     fontSize: 13,
-    color: "#6b7280",
+    color: colors.textSecondary,
     lineHeight: 18
   }
 });

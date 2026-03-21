@@ -1,23 +1,12 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { mutationGeneric, queryGeneric } from "convex/server";
 import { v } from "convex/values";
+import { getCurrentUserPayload } from "./sessionUser";
 
 /** Current user profile for the authenticated session (Convex Auth). */
 export const getCurrentUser = queryGeneric({
   args: {},
-  handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx);
-    if (userId === null) return null;
-    const user = await ctx.db.get(userId);
-    if (!user) return null;
-    return {
-      ...user,
-      points: user.points ?? 0,
-      onboarding_completed: user.onboarding_completed ?? false,
-      tier_status: user.tier_status ?? "bronze",
-      created_at: user.created_at ?? Date.now()
-    };
-  }
+  handler: async (ctx) => getCurrentUserPayload(ctx)
 });
 
 export const completeOnboarding = mutationGeneric({

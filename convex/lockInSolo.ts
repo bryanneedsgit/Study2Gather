@@ -14,6 +14,7 @@ import {
   localHourFromUtcMs,
   pointsFromEligibleMinutes
 } from "./rules";
+import { userPointsBalance } from "./userPoints";
 
 /** Public mapping for UI + web clients (duration → points formula). */
 export const getLockInPointsPolicy = queryGeneric({

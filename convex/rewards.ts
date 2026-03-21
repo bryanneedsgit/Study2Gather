@@ -6,6 +6,7 @@ import type { GenericMutationCtx } from "convex/server";
 import { mutationGeneric, queryGeneric } from "convex/server";
 import { v } from "convex/values";
 import type { DataModel, Id } from "./_generated/dataModel";
+import { userPointsBalance } from "./userPoints";
 
 type MutationCtx = GenericMutationCtx<DataModel>;
 
@@ -40,7 +41,7 @@ async function applyPointsDelta(
   if (!user) {
     throw new Error("user_not_found");
   }
-  const current = user.points ?? 0;
+  const current = userPointsBalance(user);
   const next = current + args.delta;
   if (next < 0) {
     throw new Error("insufficient_points");
@@ -151,7 +152,7 @@ export const redeemReward = mutationGeneric({
     if (!user) {
       return { ok: false as const, reason: "user_not_found" as const };
     }
-    if ((user.points ?? 0) < reward.cost_points) {
+    if (userPointsBalance(user) < reward.cost_points) {
       return { ok: false as const, reason: "insufficient_points" as const };
     }
 

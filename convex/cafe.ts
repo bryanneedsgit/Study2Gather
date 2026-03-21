@@ -2,6 +2,7 @@ import { mutationGeneric, queryGeneric } from "convex/server";
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { FOOTFALL_LOW_THRESHOLD, TUTOR_REWARD_POINTS } from "./rules";
+import { userPointsBalance } from "./userPoints";
 
 function usedCapacity(
   cafe: { total_stipulated_tables: number; current_occupied_tables: number },
@@ -211,7 +212,7 @@ export const finalizeCouponPurchase = mutationGeneric({
       const tutor = await ctx.db.get(args.tutorUserId);
       if (tutor) {
         await ctx.db.patch(args.tutorUserId, {
-          points: (tutor.points ?? 0) + TUTOR_REWARD_POINTS
+          points: userPointsBalance(tutor) + TUTOR_REWARD_POINTS
         });
       }
     }
