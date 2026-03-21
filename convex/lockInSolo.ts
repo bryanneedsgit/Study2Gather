@@ -91,8 +91,10 @@ export const startSoloLockIn = mutationGeneric({
     const existing = existingRows[0];
     if (existing) throw new Error("already_locked_in");
 
+    const venueId = validCheckIn.study_spot_id ?? validCheckIn.cafe_id;
     const sessionId = await ctx.db.insert("lock_in_sessions", {
       user_id: userId,
+      ...(venueId !== undefined ? { location_id: venueId as string } : {}),
       started_at: args.nowMs,
       status: "active",
       duration_minutes: 0,

@@ -93,6 +93,8 @@ export default defineSchema({
    */
   lock_in_sessions: defineTable({
     user_id: v.id("users"),
+    /** Venue id from check-in: `study_spots` or `cafe_locations` id as string (for analytics / n8n). */
+    location_id: v.optional(v.string()),
     started_at: v.number(),
     ended_at: v.optional(v.number()),
     status: lockInSessionStatus,
