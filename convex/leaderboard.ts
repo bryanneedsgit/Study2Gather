@@ -1,6 +1,6 @@
 /**
  * Monthly leaderboard (hackathon MVP): **only** completed `study_sessions` in the UTC month window.
- * Does **not** use `users.points_total` for ranking (lifetime balance is unrelated to monthly competition).
+ * Does **not** use `users.points` for ranking (lifetime balance is unrelated to monthly competition).
  *
  * Per user (via `session_participants`):
  * - monthlyPoints = sum of `points_awarded` on each completed session they joined
@@ -50,8 +50,8 @@ type UserStats = {
 function displayNameFromUser(u: { name?: string; email?: string }): string {
   if (u.name && u.name.trim().length > 0) return u.name.trim();
   const email = u.email?.trim();
-  if (email) return email.split("@")[0] ?? "student";
-  return "student";
+  if (email) return email.split("@")[0] ?? "Student";
+  return "Student";
 }
 
 function compareRows(a: UserStats, b: UserStats): number {
@@ -127,7 +127,7 @@ const methodology = {
   monthlyMinutes: "Sum of duration_minutes for those sessions.",
   completedSessions: "Count of those sessions.",
   ranking: "monthlyPoints desc, then monthlyMinutes desc, then completedSessions desc.",
-  notUsed: "users.points_total is not used for monthly ranking."
+  notUsed: "users.points (lifetime) is not used for monthly ranking."
 } as const;
 
 export const getMonthlyLeaderboard = queryGeneric({
