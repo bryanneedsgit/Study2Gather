@@ -24,8 +24,7 @@
         {
           "cameraPermission": "Allow Study2Gather to use your camera to scan check-in QR codes."
         }
-      ]
-      "expo-secure-store",
+      ],
       [
         "expo-location",
         {
