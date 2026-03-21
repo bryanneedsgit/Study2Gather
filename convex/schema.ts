@@ -93,7 +93,9 @@ export default defineSchema({
     .index("by_group", ["group_id"])
     .index("by_status", ["status"])
     .index("by_group_started", ["group_id", "started_at"])
-    .index("by_group_status", ["group_id", "status"]),
+    .index("by_group_status", ["group_id", "status"])
+    /** Range queries for monthly leaderboard (completed sessions with ended_at). */
+    .index("by_ended_at", ["ended_at"]),
 
   session_participants: defineTable({
     session_id: v.id("study_sessions"),

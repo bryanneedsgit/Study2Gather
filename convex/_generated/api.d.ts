@@ -10,11 +10,13 @@
 
 import type * as auth from "../auth.js";
 import type * as cafe from "../cafe.js";
+import type * as leaderboard from "../leaderboard.js";
 import type * as lockIn from "../lockIn.js";
 import type * as mutations from "../mutations.js";
 import type * as queries from "../queries.js";
 import type * as rewards from "../rewards.js";
 import type * as rules from "../rules.js";
+import type * as schoolOptions from "../schoolOptions.js";
 import type * as studySessions from "../studySessions.js";
 
 import type {
@@ -26,11 +28,13 @@ import type {
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   cafe: typeof cafe;
+  leaderboard: typeof leaderboard;
   lockIn: typeof lockIn;
   mutations: typeof mutations;
   queries: typeof queries;
   rewards: typeof rewards;
   rules: typeof rules;
+  schoolOptions: typeof schoolOptions;
   studySessions: typeof studySessions;
 }>;
 

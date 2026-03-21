@@ -81,11 +81,13 @@ This project uses **Expo + React Native + TypeScript** because it is the most re
 │   ├── auth.ts
 │   ├── schema.ts
 │   ├── queries.ts
+│   ├── schoolOptions.ts
 │   ├── mutations.ts
 │   ├── lockIn.ts
 │   ├── studySessions.ts
 │   ├── cafe.ts
 │   ├── rewards.ts
+│   ├── leaderboard.ts
 │   └── rules.ts
 └── supabase
     ├── schema.sql
@@ -146,6 +148,10 @@ Expo exposes variables prefixed with `EXPO_PUBLIC_` to the app runtime.
 | `completeOnboarding` | mutation | Sets school, course, age, `onboarding_completed: true` |
 | `getCurrentUser` | query | Load profile by `userId` |
 
+### School presets (`convex/schoolOptions.ts`)
+
+DE/EU university strings for onboarding alignment. Optional query `getSchoolPresets` returns the same list the app shows in `src/constants/onboardingOptions.ts` — **keep those two in sync** when editing.
+
 ## Convex backend API (core logic)
 
 All business rules run in Convex mutations/queries (not in the UI).
@@ -194,6 +200,16 @@ Uses **`users.points_total`** as the balance (same field as lock-in / cafe). App
 | `getAvailableRewards` | query | Active rows from `reward_catalog` (insert catalog docs via dashboard or script) |
 | `redeemReward` | mutation | Validates reward active + balance; deducts; creates `reward_redemptions` row; returns `{ ok, ... }` |
 | `seedGermanStudentRewardCatalog` | mutation | Idempotent: inserts 13 DE/EU‑themed catalog items (Mensa, Döner, DB/Flix, Lieferando, dm, Kino, etc.) if the catalog is empty — run once from the Convex dashboard |
+
+### Leaderboard (`convex/leaderboard.ts`)
+
+Monthly **UTC** window. Uses **only** completed `study_sessions` (`ended_at` in window, `status === completed`) via `session_participants`. **Does not** rank by `users.points_total`. Metrics: `monthlyPoints` (sum `points_awarded`), `monthlyMinutes` (sum `duration_minutes`), `completedSessions` (count). Rank: points → minutes → session count. See `methodology` on each query.
+
+| Function | Type | Purpose |
+|----------|------|---------|
+| `getMonthlyLeaderboard` | query | Ranked `entries` (default limit 100, max 500), optional `yearMonth`, `nowMs` |
+| `getUserRank` | query | `rank`, `stats`, `totalRankedUsers` for one `userId` |
+| `getLeaderboardPreview` | query | Top `limit` (default 10, max 50) |
 
 ## Notes
 

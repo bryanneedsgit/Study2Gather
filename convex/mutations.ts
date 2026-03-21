@@ -16,7 +16,7 @@ export const incrementTestCounter = mutationGeneric({
       const email = `smoke-${args.key.replace(/[^a-z0-9-]/gi, "")}@study2gather.test`;
       const id = await ctx.db.insert("users", {
         email,
-        school: "smoke-test",
+        school: "TUM",
         course: args.key,
         age: 18,
         onboarding_completed: true,
