@@ -1,8 +1,30 @@
+import type { GenericMutationCtx } from "convex/server";
 import { mutationGeneric, queryGeneric } from "convex/server";
 import { v } from "convex/values";
-import type { Id } from "./_generated/dataModel";
-import { FOOTFALL_LOW_THRESHOLD, TUTOR_REWARD_POINTS } from "./rules";
+import type { DataModel, Id } from "./_generated/dataModel";
+import {
+  computeReduceMarginFromFootfall,
+  FOOTFALL_LOW_THRESHOLD,
+  TUTOR_REWARD_POINTS
+} from "./rules";
 import { userPointsBalance } from "./userPoints";
+
+type MutationCtx = GenericMutationCtx<DataModel>;
+
+/**
+ * Single place to add tutor points (competitive-rate path and `grantTutorPointsReward`).
+ * No platform revenue split modeled — points only (hackathon).
+ */
+async function applyTutorPointsRewardInternal(
+  ctx: MutationCtx,
+  args: { tutorId: Id<"users">; amount: number }
+): Promise<{ balanceAfter: number }> {
+  const tutor = await ctx.db.get(args.tutorId);
+  if (!tutor) throw new Error("tutor_not_found");
+  const next = userPointsBalance(tutor) + args.amount;
+  await ctx.db.patch(args.tutorId, { points: next });
+  return { balanceAfter: next };
+}
 
 function usedCapacity(
   cafe: { total_stipulated_tables: number; current_occupied_tables: number },
@@ -70,8 +92,8 @@ export const checkCafeAvailability = queryGeneric({
       footfall_metric: cafe.footfall_metric,
       // Stored flag on `cafe_locations` (see schema).
       reduce_margin: cafe.reduce_margin,
-      // Same heuristic as `finalizeCouponPurchase` for `margin_reduced` on coupons.
-      margin_reduced_by_footfall: cafe.footfall_metric <= FOOTFALL_LOW_THRESHOLD,
+      // Same heuristic as `finalizeCouponPurchase` / `computeReduceMarginFromFootfall`.
+      margin_reduced_by_footfall: computeReduceMarginFromFootfall(cafe.footfall_metric),
       active_holds: activeHolds,
       used_capacity: used,
       available_seats: avail,
@@ -156,7 +178,9 @@ export const finalizeCouponPurchase = mutationGeneric({
       throw new Error("cafe_full");
     }
 
-    const marginReduced = cafe.footfall_metric <= FOOTFALL_LOW_THRESHOLD;
+    /** Stored flag OR live footfall rule — see `updateCafeMarginFlag`. */
+    const marginReduced =
+      cafe.reduce_margin || computeReduceMarginFromFootfall(cafe.footfall_metric);
     const duration = args.reservationDurationMs ?? 2 * 60 * 60 * 1000;
     const start = args.nowMs;
     const end = args.nowMs + duration;
@@ -209,12 +233,10 @@ export const finalizeCouponPurchase = mutationGeneric({
     }
 
     if (pricingMode === "competitive_rate" && args.tutorUserId) {
-      const tutor = await ctx.db.get(args.tutorUserId);
-      if (tutor) {
-        await ctx.db.patch(args.tutorUserId, {
-          points: userPointsBalance(tutor) + TUTOR_REWARD_POINTS
-        });
-      }
+      await applyTutorPointsRewardInternal(ctx, {
+        tutorId: args.tutorUserId,
+        amount: TUTOR_REWARD_POINTS
+      });
     }
 
     return {
@@ -267,5 +289,87 @@ export const verifyCafePresence = mutationGeneric({
     });
 
     return { ok: true as const };
+  }
+});
+
+/**
+ * Sync `cafe_locations.reduce_margin` from footfall (low footfall → true).
+ * Run after updating `footfall_metric` or on a schedule; coupon flow also ORs live footfall in `finalizeCouponPurchase`.
+ */
+export const updateCafeMarginFlag = mutationGeneric({
+  args: {
+    cafeId: v.id("cafe_locations")
+  },
+  handler: async (ctx, args) => {
+    const cafe = await ctx.db.get(args.cafeId);
+    if (!cafe) throw new Error("cafe_not_found");
+    const reduce_margin = computeReduceMarginFromFootfall(cafe.footfall_metric);
+    await ctx.db.patch(args.cafeId, { reduce_margin });
+    return {
+      cafeId: args.cafeId,
+      reduce_margin,
+      footfall_metric: cafe.footfall_metric,
+      threshold: FOOTFALL_LOW_THRESHOLD
+    };
+  }
+});
+
+/**
+ * Grant arbitrary positive integer points to a tutor user (admin / compensations).
+ * Competitive-rate checkout uses `handleTutorCompetitiveRate` or the default path inside `finalizeCouponPurchase`.
+ */
+export const grantTutorPointsReward = mutationGeneric({
+  args: {
+    tutorId: v.id("users"),
+    amount: v.number(),
+    context: v.optional(v.string())
+  },
+  handler: async (ctx, args) => {
+    if (!Number.isFinite(args.amount) || args.amount <= 0 || !Number.isInteger(args.amount)) {
+      throw new Error("invalid_amount");
+    }
+    const { balanceAfter } = await applyTutorPointsRewardInternal(ctx, {
+      tutorId: args.tutorId,
+      amount: args.amount
+    });
+    return {
+      ok: true as const,
+      tutorId: args.tutorId,
+      amount: args.amount,
+      balanceAfter,
+      context: args.context ?? null
+    };
+  }
+});
+
+/**
+ * Default competitive-rate tutor bonus (same points as `finalizeCouponPurchase` when `pricingMode === "competitive_rate"`).
+ * Does not attach to a coupon row yet — use when replaying or testing without a full payment pipeline.
+ */
+export const handleTutorCompetitiveRate = mutationGeneric({
+  args: {
+    tutorId: v.id("users"),
+    /** Defaults to `TUTOR_REWARD_POINTS` from rules. */
+    amount: v.optional(v.number()),
+    context: v.optional(v.string())
+  },
+  handler: async (ctx, args) => {
+    const amount = args.amount ?? TUTOR_REWARD_POINTS;
+    if (!Number.isInteger(amount) || amount <= 0) {
+      throw new Error("invalid_amount");
+    }
+    const { balanceAfter } = await applyTutorPointsRewardInternal(ctx, {
+      tutorId: args.tutorId,
+      amount
+    });
+    return {
+      ok: true as const,
+      tutorId: args.tutorId,
+      amount,
+      balanceAfter,
+      context: args.context ?? null,
+      note:
+        "Scaffold: prefer awarding via finalizeCouponPurchase(competitive_rate) to avoid double rewards."
+    };
   }
 });
