@@ -14,6 +14,127 @@ export const FOOTFALL_LOW_THRESHOLD = 20;
 
 export const TUTOR_REWARD_POINTS = 50;
 
+/** How far ahead a reservation may start (ms from `nowMs` passed by the client). */
+export const RESERVATION_MAX_ADVANCE_MS = 7 * 24 * 60 * 60 * 1000;
+
+export const RESERVATION_MS_PER_HOUR = 60 * 60 * 1000;
+export const RESERVATION_MS_PER_DAY = 24 * RESERVATION_MS_PER_HOUR;
+
+/**
+ * **Flat** advance reservation fee (€), not prorated by stay length — from lead time `startMs - bookingNowMs`:
+ * - \> 3 days → €3
+ * - \> 2 days and ≤ 3 days → €4
+ * - otherwise (incl. negative lead) → €5
+ */
+export function reservationAdvanceFlatEuro(bookingNowMs: number, startMs: number): number {
+  const advanceMs = startMs - bookingNowMs;
+  if (!Number.isFinite(advanceMs) || !Number.isFinite(bookingNowMs) || !Number.isFinite(startMs)) {
+    throw new Error("invalid_time_range");
+  }
+  if (advanceMs < 0) return 5;
+  if (advanceMs > 3 * RESERVATION_MS_PER_DAY) return 3;
+  if (advanceMs > 2 * RESERVATION_MS_PER_DAY) return 4;
+  return 5;
+}
+
+/** @deprecated Use {@link reservationAdvanceFlatEuro}. Kept for any legacy imports. */
+export const reservationFirstHourBaseEuro = reservationAdvanceFlatEuro;
+
+/**
+ * Single €/h rate for the **whole** stay from **total** booked hours `H`:
+ * - **H ≤ 1** → €3/h
+ * - **1 < H ≤ 3** → €2.50/h (2–3h bookings)
+ * - **3 < H ≤ 4** → €2.50/h (gap between “2–3h” and “over 4h” long tier)
+ * - **H > 4** → €1.50/h
+ */
+export function stayEuroPerHourForTotalDurationHours(H: number): number {
+  if (H <= 1) return 3;
+  if (H <= 3) return 2.5;
+  if (H <= 4) return 2.5;
+  return 1.5;
+}
+
+/**
+ * Total price = **flat advance fee** + **stay** (one hourly rate for entire duration from bracket above).
+ *
+ * Extensions: pass the **original** `bookingNowMs` so the full [start, end) reprices as if booked then.
+ */
+export type ReservationPriceBreakdownLine = {
+  tier: "advance" | "stay";
+  label: string;
+  hours: number;
+  rateEuroPerHour: number;
+  subtotalEuro: number;
+};
+
+export function computeTieredReservationPriceEuros(
+  startMs: number,
+  endMs: number,
+  bookingNowMs: number
+): {
+  durationHours: number;
+  costEuro: number;
+  /** Same as advance flat € (3/4/5). Name kept for API compatibility with clients. */
+  firstHourBaseEuro: number;
+  /** Flat advance reservation fee (€3 / €4 / €5). */
+  reservationEuro: number;
+  /** Stay only: `H × rate(H)` where rate depends on total hours (see `stayEuroPerHourForTotalDurationHours`). */
+  hourlyTierEuro: number;
+  breakdown: ReservationPriceBreakdownLine[];
+} {
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs <= startMs) {
+    throw new Error("invalid_time_range");
+  }
+  const H = (endMs - startMs) / RESERVATION_MS_PER_HOUR;
+  const flat = reservationAdvanceFlatEuro(bookingNowMs, startMs);
+
+  const stayRate = stayEuroPerHourForTotalDurationHours(H);
+  const rawHourly = H * stayRate;
+  const costEuro = Math.round((flat + rawHourly) * 100) / 100;
+
+  let reservationEuro = Math.round(flat * 100) / 100;
+  let hourlyTierEuro = Math.round(rawHourly * 100) / 100;
+  const sumParts = Math.round((reservationEuro + hourlyTierEuro) * 100) / 100;
+  if (sumParts !== costEuro) {
+    hourlyTierEuro = Math.round((costEuro - reservationEuro) * 100) / 100;
+  }
+
+  const breakdown: ReservationPriceBreakdownLine[] = [];
+  breakdown.push({
+    tier: "advance",
+    label: "Advance reservation fee (fixed)",
+    hours: 1,
+    rateEuroPerHour: flat,
+    subtotalEuro: reservationEuro
+  });
+
+  const stayLabel =
+    H <= 1
+      ? "Stay (up to 1h total @ €3/h)"
+      : H <= 3
+        ? "Stay (over 1h up to 3h @ €2.50/h)"
+        : H <= 4
+          ? "Stay (over 3h up to 4h @ €2.50/h)"
+          : "Stay (over 4h @ €1.50/h)";
+
+  breakdown.push({
+    tier: "stay",
+    label: stayLabel,
+    hours: H,
+    rateEuroPerHour: stayRate,
+    subtotalEuro: hourlyTierEuro
+  });
+
+  return {
+    durationHours: H,
+    costEuro,
+    firstHourBaseEuro: flat,
+    reservationEuro,
+    hourlyTierEuro,
+    breakdown
+  };
+}
+
 /** When true, platform may apply a reduced margin on coupons (paired with `cafe_locations.reduce_margin`). */
 export function computeReduceMarginFromFootfall(footfallMetric: number): boolean {
   return footfallMetric <= FOOTFALL_LOW_THRESHOLD;

@@ -4,7 +4,8 @@
 import { queryGeneric } from "convex/server";
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
-import { distanceMeters } from "./geoUtils";
+import { resolveCafeOpeningHours } from "./cafeHours";
+import { distanceMeters, estimatedWalkMinutesFromDistanceMeters } from "./geoUtils";
 
 function assertValidLatLng(lat: number, lng: number): void {
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) throw new Error("invalid_coordinates");
@@ -14,7 +15,7 @@ function assertValidLatLng(lat: number, lng: number): void {
 
 function cafeWithDistance(
   cafe: Doc<"cafe_locations">,
-  distanceKm: number
+  distanceMetersValue: number
 ): {
   _id: Id<"cafe_locations">;
   name: string;
@@ -25,7 +26,13 @@ function cafeWithDistance(
   footfall_metric: number;
   distanceKm: number;
   distanceMeters: number;
+  estimatedWalkMinutes: number;
+  timezone_offset_minutes: number;
+  opens_local_minute: number;
+  closes_local_minute: number;
 } {
+  const distanceKm = distanceMetersValue / 1000;
+  const hours = resolveCafeOpeningHours(cafe);
   return {
     _id: cafe._id,
     name: cafe.name,
@@ -35,7 +42,11 @@ function cafeWithDistance(
     current_occupied_tables: cafe.current_occupied_tables,
     footfall_metric: cafe.footfall_metric,
     distanceKm: Math.round(distanceKm * 1000) / 1000,
-    distanceMeters: Math.round(distanceKm * 1000)
+    distanceMeters: Math.round(distanceMetersValue),
+    estimatedWalkMinutes: estimatedWalkMinutesFromDistanceMeters(distanceMetersValue),
+    timezone_offset_minutes: hours.timezoneOffsetMinutes,
+    opens_local_minute: hours.opensLocalMinute,
+    closes_local_minute: hours.closesLocalMinute
   };
 }
 
@@ -58,12 +69,12 @@ export const getNearbyCafeLocations = queryGeneric({
       .map((cafe) => {
         const m = distanceMeters(origin, { lat: cafe.lat, lng: cafe.lng });
         const km = m / 1000;
-        return { cafe, km };
+        return { cafe, m, km };
       })
       .filter(({ km }) => km <= maxKm)
       .sort((a, b) => a.km - b.km)
       .slice(0, cap)
-      .map(({ cafe, km }) => cafeWithDistance(cafe, km));
+      .map(({ cafe, m }) => cafeWithDistance(cafe, m));
 
     return {
       center: { lat: args.lat, lng: args.lng },
