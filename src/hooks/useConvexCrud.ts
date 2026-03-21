@@ -111,6 +111,38 @@ export function useDeleteForumPost() {
   return useMutation(api.crudMutations.deleteForumPost);
 }
 
+/** Prefer `forum` module for product flows (auth, sorting, resolve). */
+export function useForumPostsMvp(filters?: { subject?: string; limit?: number }) {
+  return useQuery(api.forum.getPosts, {
+    limit: filters?.limit ?? 40,
+    ...(filters?.subject !== undefined ? { subject: filters.subject } : {})
+  });
+}
+
+export function useCreateForumPost() {
+  return useMutation(api.forum.createPost);
+}
+
+export function useMarkForumPostResolved() {
+  return useMutation(api.forum.markPostResolved);
+}
+
+export function useSeedForumExamples() {
+  return useMutation(api.forum.seedExampleForumPosts);
+}
+
+export function useForumResponsesForPost(postId: Id<"forum_posts"> | undefined) {
+  return useQuery(api.forum.getResponsesForPost, postId ? { postId } : "skip");
+}
+
+export function useForumResponseCounts(postIds: Id<"forum_posts">[] | undefined) {
+  return useQuery(api.forum.getResponseCounts, postIds && postIds.length > 0 ? { postIds } : "skip");
+}
+
+export function useCreateForumResponse() {
+  return useMutation(api.forum.createResponse);
+}
+
 /* study_spots */
 export function useStudySpot(id: Id<"study_spots"> | undefined) {
   return useQuery(api.crudQueries.getStudySpot, id ? { id } : "skip");

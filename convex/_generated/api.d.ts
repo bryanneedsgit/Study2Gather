@@ -13,6 +13,7 @@ import type * as cafe from "../cafe.js";
 import type * as crudMutations from "../crudMutations.js";
 import type * as crudQueries from "../crudQueries.js";
 import type * as geoUtils from "../geoUtils.js";
+import type * as forum from "../forum.js";
 import type * as http from "../http.js";
 import type * as leaderboard from "../leaderboard.js";
 import type * as locationCheckIn from "../locationCheckIn.js";
@@ -43,6 +44,7 @@ declare const fullApi: ApiFromModules<{
   crudMutations: typeof crudMutations;
   crudQueries: typeof crudQueries;
   geoUtils: typeof geoUtils;
+  forum: typeof forum;
   http: typeof http;
   leaderboard: typeof leaderboard;
   locationCheckIn: typeof locationCheckIn;

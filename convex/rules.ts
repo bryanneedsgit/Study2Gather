@@ -14,6 +14,11 @@ export const FOOTFALL_LOW_THRESHOLD = 20;
 
 export const TUTOR_REWARD_POINTS = 50;
 
+/** When true, platform may apply a reduced margin on coupons (paired with `cafe_locations.reduce_margin`). */
+export function computeReduceMarginFromFootfall(footfallMetric: number): boolean {
+  return footfallMetric <= FOOTFALL_LOW_THRESHOLD;
+}
+
 export function localHourFromUtcMs(utcMs: number, timezoneOffsetMinutes: number): number {
   const totalMinutes = Math.floor(utcMs / 60000) + timezoneOffsetMinutes;
   const minutesOfDay = ((totalMinutes % (24 * 60)) + 24 * 60) % (24 * 60);
