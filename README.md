@@ -97,20 +97,41 @@ Expo exposes variables prefixed with `EXPO_PUBLIC_` to the app runtime.
 
 ## Convex setup notes
 
-- Convex functions live in `convex/`:
-  - `schema.ts`
-  - `queries.ts`
-  - `mutations.ts`
+- Convex functions live in `convex/` (see **Convex backend API** below).
 - React Native client is in `src/lib/convex.ts`
 - App provider wiring is in `App.tsx`
 - Basic smoke test is in `src/screens/profile/ProfileScreen.tsx`
   - query: `queries:getBackendHealth`
   - mutation: `mutations:incrementTestCounter`
 
+## Convex backend API (core logic)
+
+All business rules run in Convex mutations/queries (not in the UI).
+
+### Lock-in (`convex/lockIn.ts` + `convex/rules.ts`)
+
+| Function | Type | Purpose |
+|----------|------|---------|
+| `validateSessionEligibility` | query | Cooldown, night window (local hour via offset), optional group size ≥ 2 |
+| `enforceRules` | query | Exposes interval / max session / cooldown / night window constants + snapshot |
+| `startStudySession` | mutation | Validates rules, blocks duplicate active session, creates session + participant rows |
+| `updateSessionParticipantFlags` | mutation | Client reports foreground / proximity for a participant |
+| `completeSession` | mutation | Validates all participants, applies 60m intervals + 4h cap + night window, awards points, sets 2h cooldown if session hit 4h cap |
+
+### Cafe (`convex/cafe.ts`)
+
+| Function | Type | Purpose |
+|----------|------|---------|
+| `checkCafeAvailability` | query | `available_seats`, `can_transact`, `reduce_margin` (footfall vs threshold) |
+| `createSeatHold` | mutation | 5-minute hold; rejects when `occupied + active holds >= total` (race-safe in one mutation) |
+| `finalizeCouponPurchase` | mutation | Converts hold, increments cafe occupancy, creates reservation + coupon, optional tutor points |
+| `releaseExpiredSeatHolds` | mutation | Marks expired active holds |
+| `verifyCafePresence` | mutation | Marks reservation verified / completed |
+
 ## Notes
 
 - Legacy Supabase SQL files are kept for reference only and are no longer used by the app runtime.
-- This foundation intentionally keeps backend setup minimal; feature logic comes in later prompts.
+- Pass `nowMs` and `timezoneOffsetMinutes` from the client for time-based rules; all enforcement still happens server-side.
 
 ## Intended build order
 
@@ -123,4 +144,3 @@ Expo exposes variables prefixed with `EXPO_PUBLIC_` to the app runtime.
 7. Rewards (ledger events and balances)
 8. Leaderboard (monthly competition ranking)
 9. Profile (account and preferences)
->>>>>>> 8a685337 (first commit)

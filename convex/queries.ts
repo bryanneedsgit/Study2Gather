@@ -6,15 +6,20 @@ export const getBackendHealth = queryGeneric({
     key: v.string()
   },
   handler: async (ctx, args) => {
-    const doc = await ctx.db
-      .query("testCounters")
-      .withIndex("by_key", (q) => q.eq("key", args.key))
+    const smoke = await ctx.db
+      .query("users")
+      .filter((q) =>
+        q.and(q.eq(q.field("school"), "smoke-test"), q.eq(q.field("course"), args.key))
+      )
       .first();
+
+    const allUsers = await ctx.db.query("users").collect();
 
     return {
       ok: true,
       message: "Convex query connected",
-      count: doc?.count ?? 0
+      count: smoke?.points_total ?? 0,
+      totalUsers: allUsers.length
     };
   }
 });

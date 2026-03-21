@@ -7,17 +7,26 @@ export const incrementTestCounter = mutationGeneric({
   },
   handler: async (ctx, args) => {
     const existing = await ctx.db
-      .query("testCounters")
-      .withIndex("by_key", (q) => q.eq("key", args.key))
+      .query("users")
+      .filter((q) =>
+        q.and(q.eq(q.field("school"), "smoke-test"), q.eq(q.field("course"), args.key))
+      )
       .first();
 
     if (!existing) {
-      await ctx.db.insert("testCounters", { key: args.key, count: 1 });
-      return 1;
+      const id = await ctx.db.insert("users", {
+        school: "smoke-test",
+        course: args.key,
+        age: 0,
+        points_total: 1,
+        tier_status: "bronze",
+        created_at: Date.now()
+      });
+      return { next: 1, userId: id };
     }
 
-    const next = existing.count + 1;
-    await ctx.db.patch(existing._id, { count: next });
-    return next;
+    const next = existing.points_total + 1;
+    await ctx.db.patch(existing._id, { points_total: next });
+    return { next, userId: existing._id };
   }
 });
