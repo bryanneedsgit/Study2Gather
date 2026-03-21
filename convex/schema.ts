@@ -68,6 +68,8 @@ export default defineSchema({
     age: v.optional(v.number()),
     onboarding_completed: v.optional(v.boolean()),
     points: v.optional(v.number()),
+    /** Legacy name; prefer `points` for new writes. */
+    points_total: v.optional(v.number()),
     tier_status: v.optional(tierStatus),
     created_at: v.optional(v.number()),
     timezone_offset_minutes: v.optional(v.number()),
@@ -242,7 +244,7 @@ export default defineSchema({
 
   /**
    * Append-only ledger for point changes made through `rewards:addPoints` / `rewards:deductPoints` / `rewards:redeemReward`.
-   * Lock-in and cafe flows may still update `users.points_total` directly until migrated to call these mutations.
+   * Lock-in and cafe flows update `users.points` (legacy docs may still carry `points_total`).
    */
   points_ledger: defineTable({
     user_id: v.id("users"),

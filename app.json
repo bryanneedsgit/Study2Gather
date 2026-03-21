@@ -7,7 +7,7 @@
     "userInterfaceStyle": "light",
     "splash": {
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#0a0f1a"
     },
     "assetBundlePatterns": [
       "**/*"
@@ -18,7 +18,13 @@
     "android": {},
     "web": {},
     "plugins": [
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Study2Gather to use your camera to scan check-in QR codes."
+        }
+      ]
     ]
   }
 }

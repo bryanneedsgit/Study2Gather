@@ -1,5 +1,6 @@
 import { queryGeneric } from "convex/server";
 import { v } from "convex/values";
+import { userPointsBalance } from "./userPoints";
 
 export const getBackendHealth = queryGeneric({
   args: {
@@ -17,7 +18,7 @@ export const getBackendHealth = queryGeneric({
     return {
       ok: true,
       message: "Convex query connected",
-      count: smoke?.points ?? 0,
+      count: smoke ? userPointsBalance(smoke) : 0,
       totalUsers: allUsers.length
     };
   }
