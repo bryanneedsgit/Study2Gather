@@ -1,4 +1,10 @@
-import { ActivityIndicator, Alert, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Alert,
+  StyleSheet,
+  Text,
+  View
+} from "react-native";
 import { useQuery } from "convex/react";
 import { AppCard } from "@/components/AppCard";
 import { PlaceholderScreen } from "@/components/PlaceholderScreen";
@@ -13,8 +19,11 @@ export function LockInScreen() {
   const { user } = useSession();
   const { isLockedIn, startLockIn } = useLockInSession();
   const policy = useQuery(api.lockInSolo.getLockInPointsPolicy, {});
+  const locationCheckIn = useQuery(api.locationCheckIn.getActiveLocationCheckIn, user?._id ? {} : "skip");
 
-  const canStart = Boolean(user?._id && user && !isLockedIn);
+  const canStart = Boolean(
+    user?._id && user && !isLockedIn && locationCheckIn !== undefined && locationCheckIn !== null
+  );
 
   async function onStart() {
     try {
@@ -25,16 +34,18 @@ export function LockInScreen() {
     }
   }
 
+  const loadingPolicy = policy === undefined || locationCheckIn === undefined;
+
   return (
     <PlaceholderScreen title="Lock-In" subtitle="Solo focus session — earn points for eligible time.">
       {policy === undefined ? (
-        <ActivityIndicator color={colors.primary} style={{ marginVertical: 24 }} />
+        <ActivityIndicator />
       ) : (
         <AppCard style={styles.card}>
           <Text style={styles.heading}>How points work</Text>
           <Text style={styles.body}>{policy.description}</Text>
           <Text style={styles.bullet}>
-            • {policy.pointsPerFullInterval} points per {policy.intervalMinutes} minutes of eligible focus time
+            • {policy.pointsPerEligibleSecond} point per second of eligible focus time
           </Text>
           <Text style={styles.bullet}>• Max session length for points: {policy.maxSessionMinutes} minutes</Text>
           <Text style={styles.bullet}>
@@ -48,6 +59,23 @@ export function LockInScreen() {
         </AppCard>
       )}
 
+      {user?._id && !isLockedIn && locationCheckIn !== undefined ? (
+        <View style={styles.checkInCard}>
+          <Text style={styles.checkInTitle}>Venue check-in</Text>
+          {locationCheckIn === null ? (
+            <Text style={styles.muted}>
+              Use the <Text style={styles.bold}>Check in</Text> tab: scan the venue QR. We verify the code against our
+              database, then request your location and compare it to the venue&apos;s coordinates automatically.
+            </Text>
+          ) : (
+            <Text style={styles.checkedIn}>
+              ✓ Checked in{locationCheckIn.locationName ? ` at ${locationCheckIn.locationName}` : ""}. You can start
+              locked in below.
+            </Text>
+          )}
+        </View>
+      ) : null}
+
       <View style={styles.actions}>
         {!user?._id ? (
           <Text style={styles.muted}>Sign in to use Lock-In.</Text>
@@ -60,8 +88,9 @@ export function LockInScreen() {
             />
             {!isLockedIn ? (
               <Text style={styles.muted}>
-                Starts a fullscreen session with a live timer. Tap &quot;End locked in&quot; to finish — points are
-                added automatically from eligible duration.
+                {locationCheckIn === null
+                  ? "Complete check-in on the Check-in tab first (scan QR + location) — then Start locked in unlocks."
+                  : "Starts a fullscreen session with a live timer. Tap \"End locked in\" to finish — points are added automatically from eligible duration."}
               </Text>
             ) : null}
           </>
@@ -74,6 +103,28 @@ export function LockInScreen() {
 const styles = StyleSheet.create({
   card: {
     marginBottom: space.md
+  },
+  checkInCard: {
+    marginBottom: 16,
+    padding: 14,
+    backgroundColor: "#f8fafc",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    gap: 10
+  },
+  checkInTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#0f172a"
+  },
+  checkedIn: {
+    fontSize: 14,
+    color: "#15803d",
+    lineHeight: 20
+  },
+  bold: {
+    fontWeight: "700"
   },
   heading: {
     fontSize: 17,

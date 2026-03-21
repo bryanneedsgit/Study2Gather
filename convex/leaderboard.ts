@@ -127,7 +127,7 @@ const methodology = {
   monthlyMinutes: "Sum of duration_minutes for those sessions.",
   completedSessions: "Count of those sessions.",
   ranking: "monthlyPoints desc, then monthlyMinutes desc, then completedSessions desc.",
-  notUsed: "users.points (lifetime) is not used for monthly ranking."
+  notUsed: "users.points is not used for monthly ranking."
 } as const;
 
 export const getMonthlyLeaderboard = queryGeneric({

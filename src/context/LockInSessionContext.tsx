@@ -47,10 +47,7 @@ const LockInSessionContext = createContext<LockInSessionContextValue | null>(nul
 export function LockInSessionProvider({ children }: { children: ReactNode }) {
   const { user } = useSession();
   const userId = user?._id;
-  const active = useQuery(
-    api.lockInSolo.getActiveSoloLockIn,
-    userId ? { userId: userId as Id<"users"> } : "skip"
-  );
+  const active = useQuery(api.lockInSolo.getActiveSoloLockIn, userId ? {} : "skip");
 
   const startMutation = useMutation(api.lockInSolo.startSoloLockIn);
   const endMutation = useMutation(api.lockInSolo.endSoloLockIn);
@@ -79,7 +76,6 @@ export function LockInSessionProvider({ children }: { children: ReactNode }) {
   const startLockIn = useCallback(async () => {
     if (!userId) throw new Error("Not signed in");
     await startMutation({
-      userId: userId as Id<"users">,
       nowMs: Date.now(),
       timezoneOffsetMinutes: timezoneOffsetMinutesEast()
     });
@@ -89,7 +85,6 @@ export function LockInSessionProvider({ children }: { children: ReactNode }) {
     if (!userId || !active) return;
     await endMutation({
       sessionId: active._id,
-      userId: userId as Id<"users">,
       endedAtMs: Date.now(),
       timezoneOffsetMinutes: timezoneOffsetMinutesEast()
     });
