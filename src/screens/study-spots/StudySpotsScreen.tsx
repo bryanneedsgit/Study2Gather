@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Linking,
   Platform,
   Pressable,
@@ -10,12 +11,19 @@ import {
   View
 } from "react-native";
 import * as Location from "expo-location";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { AppCard } from "@/components/AppCard";
 import { ScreenContainer } from "@/components/ScreenContainer";
+import { useSession } from "@/context/SessionContext";
 import { api } from "@/lib/convexApi";
+import { getCafeReservationUserMessage } from "@/lib/cafeReservationUi";
+import { formatStoreLocalDateTime } from "@/lib/storeLocalTime";
+import { formatDistanceLabel } from "@/lib/formatDistance";
+import { formatWalkMinutes } from "@/lib/walkTime";
 import { colors } from "@/theme/colors";
 import { radius, space } from "@/theme/layout";
+import type { Id } from "../../../convex/_generated/dataModel";
+import { CafeReservationModal } from "./CafeReservationModal";
 import StudySpotsMap from "./StudySpotsMap";
 import type { MapPoi, MapRegion } from "./studySpotsMapTypes";
 
@@ -33,6 +41,10 @@ type CafeRow = {
   footfall_metric: number;
   distanceKm: number;
   distanceMeters: number;
+  estimatedWalkMinutes: number;
+  timezone_offset_minutes: number;
+  opens_local_minute: number;
+  closes_local_minute: number;
 };
 
 function cafeToPoi(c: CafeRow): MapPoi {
@@ -45,6 +57,12 @@ function cafeToPoi(c: CafeRow): MapPoi {
     lng: c.lng,
     distanceKm: c.distanceKm,
     distanceMeters: c.distanceMeters,
+    distanceLabel: formatDistanceLabel(c.distanceMeters),
+    cafeId: c._id as Id<"cafe_locations">,
+    timezone_offset_minutes: c.timezone_offset_minutes,
+    opens_local_minute: c.opens_local_minute,
+    closes_local_minute: c.closes_local_minute,
+    estimatedWalkMinutes: c.estimatedWalkMinutes,
     subtitle: `Partner café · ${free} seats free · footfall ${c.footfall_metric}`
   };
 }
@@ -60,6 +78,13 @@ function matchesSearch(poi: MapPoi, q: string): boolean {
 }
 
 export function StudySpotsScreen() {
+  const { user, loading: sessionLoading } = useSession();
+  const userId = user?._id as Id<"users"> | undefined;
+  const reserveMutation = useMutation(api.cafe.createTimeBasedReservation);
+  const [reservingKey, setReservingKey] = useState<string | null>(null);
+  const [reserveModalPoi, setReserveModalPoi] = useState<MapPoi | null>(null);
+  const [modalNowMs, setModalNowMs] = useState(() => Date.now());
+
   const [coords, setCoords] = useState<{ lat: number; lng: number }>({
     lat: DEFAULT_LAT,
     lng: DEFAULT_LNG
@@ -147,6 +172,60 @@ export function StudySpotsScreen() {
     void Linking.openURL(url);
   }, []);
 
+  const openReserveModal = useCallback((poi: MapPoi) => {
+    if (poi.kind !== "partner_cafe" || !poi.cafeId) return;
+    setModalNowMs(Date.now());
+    setReserveModalPoi(poi);
+  }, []);
+
+  const handleReserveFromModal = useCallback(
+    async (args: {
+      cafeId: Id<"cafe_locations">;
+      userId: Id<"users">;
+      startTime: number;
+      endTime: number;
+      nowMs: number;
+      bookingNowMs: number;
+      storeTimezoneOffsetMinutes: number;
+    }): Promise<boolean> => {
+      const key = reserveModalPoi?.key;
+      if (key) setReservingKey(key);
+      try {
+        const { storeTimezoneOffsetMinutes, ...mutationArgs } = args;
+        const r = await reserveMutation(mutationArgs);
+        const endStore = formatStoreLocalDateTime(r.expiresAt, storeTimezoneOffsetMinutes);
+        const startStore = formatStoreLocalDateTime(args.startTime, storeTimezoneOffsetMinutes);
+        Alert.alert(
+          "Reservation confirmed",
+          `Store local time: ${startStore} – ${endStore}\nEstimated total: €${r.totalCost.toFixed(2)}.`
+        );
+        return true;
+      } catch (e) {
+        Alert.alert("Could not reserve", getCafeReservationUserMessage(e));
+        return false;
+      } finally {
+        setReservingKey(null);
+      }
+    },
+    [reserveModalPoi?.key, reserveMutation]
+  );
+
+  const reserveModalCafe =
+    reserveModalPoi &&
+    reserveModalPoi.kind === "partner_cafe" &&
+    reserveModalPoi.cafeId &&
+    reserveModalPoi.timezone_offset_minutes !== undefined &&
+    reserveModalPoi.opens_local_minute !== undefined &&
+    reserveModalPoi.closes_local_minute !== undefined
+      ? {
+          name: reserveModalPoi.name,
+          cafeId: reserveModalPoi.cafeId,
+          timezone_offset_minutes: reserveModalPoi.timezone_offset_minutes,
+          opens_local_minute: reserveModalPoi.opens_local_minute,
+          closes_local_minute: reserveModalPoi.closes_local_minute
+        }
+      : null;
+
   const dataLoading = nearbyCafes === undefined;
 
   const userLocation =
@@ -156,7 +235,8 @@ export function StudySpotsScreen() {
     <ScreenContainer scroll tabTitle="Study Spots">
       <Text style={styles.lead}>
         Partner cafés near you. Your location appears on the map when location access is allowed. Search
-        or tap a pin, then open a card.
+        or tap a pin, pick start and end (store time), then confirm — lower flat reservation fee when you
+        book ahead, plus cheaper hourly tiers for longer stays.
       </Text>
 
       <TextInput
@@ -197,6 +277,22 @@ export function StudySpotsScreen() {
         </AppCard>
       ) : null}
 
+      <CafeReservationModal
+        visible={reserveModalCafe !== null}
+        onClose={() => setReserveModalPoi(null)}
+        cafe={reserveModalCafe}
+        userId={userId}
+        nowMs={modalNowMs}
+        bookingNowMs={modalNowMs}
+        onReserve={async (args) => {
+          if (!userId) {
+            Alert.alert("Sign in required", "Please sign in to reserve a seat at a partner café.");
+            return false;
+          }
+          return handleReserveFromModal(args);
+        }}
+      />
+
       {filtered.map((s) => (
         <Pressable key={s.key} onPress={() => focusPoi(s)} accessibilityRole="button">
           <AppCard
@@ -212,18 +308,40 @@ export function StudySpotsScreen() {
               </View>
             </View>
             <Text style={styles.meta}>
-              {s.distanceKm} km · {s.distanceMeters} m
+              {[
+                s.estimatedWalkMinutes != null ? formatWalkMinutes(s.estimatedWalkMinutes) : null,
+                s.distanceLabel
+              ]
+                .filter(Boolean)
+                .join(" · ")}
             </Text>
             <Text style={styles.subtitle}>{s.subtitle}</Text>
             {s.description ? <Text style={styles.desc}>{s.description}</Text> : null}
-            <Pressable
-              onPress={() => openInMaps(s.lat, s.lng)}
-              style={styles.mapsLink}
-              accessibilityRole="link"
-              accessibilityLabel="Open in maps"
-            >
-              <Text style={styles.mapsLinkText}>Open in maps</Text>
-            </Pressable>
+            <View style={styles.cardActions}>
+              <Pressable
+                onPress={() => openReserveModal(s)}
+                disabled={sessionLoading || reservingKey === s.key || s.kind !== "partner_cafe"}
+                style={({ pressed }) => [
+                  styles.reserveBtn,
+                  (sessionLoading || reservingKey === s.key) && styles.reserveBtnDisabled,
+                  pressed && styles.reserveBtnPressed
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Reserve seat"
+              >
+                <Text style={styles.reserveBtnText}>
+                  {reservingKey === s.key ? "Reserving…" : "Reserve"}
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() => openInMaps(s.lat, s.lng)}
+                style={styles.mapsLink}
+                accessibilityRole="link"
+                accessibilityLabel="Open in maps"
+              >
+                <Text style={styles.mapsLinkText}>Open in maps</Text>
+              </Pressable>
+            </View>
           </AppCard>
         </Pressable>
       ))}
@@ -320,9 +438,33 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: space.sm
   },
-  mapsLink: {
+  cardActions: {
     marginTop: space.sm,
-    alignSelf: "flex-start"
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: space.md
+  },
+  reserveBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: radius.md,
+    backgroundColor: colors.primary
+  },
+  reserveBtnPressed: {
+    opacity: 0.88
+  },
+  reserveBtnDisabled: {
+    opacity: 0.5
+  },
+  reserveBtnText: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#0a0f1a"
+  },
+  mapsLink: {
+    alignSelf: "flex-start",
+    paddingVertical: 10
   },
   mapsLinkText: {
     fontSize: 14,

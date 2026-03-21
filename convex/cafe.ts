@@ -4,10 +4,13 @@ import { v } from "convex/values";
 import type { DataModel, Id } from "./_generated/dataModel";
 import {
   computeReduceMarginFromFootfall,
+  computeTieredReservationPriceEuros,
   FOOTFALL_LOW_THRESHOLD,
+  RESERVATION_MAX_ADVANCE_MS,
   TUTOR_REWARD_POINTS
 } from "./rules";
 import { userPointsBalance } from "./userPoints";
+import { isReservationWithinStoreOpeningHours } from "./cafeHours";
 
 type MutationCtx = GenericMutationCtx<DataModel>;
 
@@ -69,6 +72,44 @@ async function userHasActiveHoldAtCafe(
   );
 }
 
+/** Reservations that still block a seat in the schedule (excludes cancelled / no_show). */
+const RESERVATION_BLOCKS_CAPACITY = new Set([
+  "pending",
+  "confirmed",
+  "completed"
+]);
+
+function intervalsOverlapHalfOpen(
+  aStart: number,
+  aEnd: number,
+  bStart: number,
+  bEnd: number
+): boolean {
+  return aStart < bEnd && bStart < aEnd;
+}
+
+async function countOverlappingReservationsForCafe(
+  ctx: MutationCtx,
+  cafeId: Id<"cafe_locations">,
+  startMs: number,
+  endMs: number,
+  excludeReservationId?: Id<"reservations">
+): Promise<number> {
+  const rows = await ctx.db
+    .query("reservations")
+    .withIndex("by_cafe", (q) => q.eq("cafe_id", cafeId))
+    .collect();
+  let n = 0;
+  for (const r of rows) {
+    if (!RESERVATION_BLOCKS_CAPACITY.has(r.status)) continue;
+    if (excludeReservationId && r._id === excludeReservationId) continue;
+    if (intervalsOverlapHalfOpen(startMs, endMs, r.start_time, r.end_time)) n++;
+  }
+  return n;
+}
+
+const MIN_RESERVATION_DURATION_MS = 60 * 1000;
+
 // --- Queries: CAFE ---
 
 export const checkCafeAvailability = queryGeneric({
@@ -100,6 +141,26 @@ export const checkCafeAvailability = queryGeneric({
       is_full: isFull,
       can_transact: avail > 0
     };
+  }
+});
+
+/**
+ * Preview duration and price for a time-based seat reservation (no DB write).
+ * Flat advance fee + stay ladder (see `computeTieredReservationPriceEuros` in `rules.ts`).
+ */
+export const quoteTimeBasedReservation = queryGeneric({
+  args: {
+    startTime: v.number(),
+    endTime: v.number(),
+    /** Same clock used at confirm; freezes “book earlier → cheaper” tier while the sheet is open. */
+    bookingNowMs: v.number()
+  },
+  handler: async (_ctx, args) => {
+    return computeTieredReservationPriceEuros(
+      args.startTime,
+      args.endTime,
+      args.bookingNowMs
+    );
   }
 });
 
@@ -142,7 +203,236 @@ export const createSeatHold = mutationGeneric({
       throw new Error("cafe_full");
     }
 
-    return { holdId, expiresAt: args.nowMs + 5 * 60 * 1000 };
+    const expiresAt = args.nowMs + 5 * 60 * 1000;
+    const remainingSeatsAfterBooking = availableSeats(cafe, activeAfter);
+
+    return {
+      /** Same id as `seatHoldId` (legacy field name). */
+      holdId,
+      seatHoldId: holdId,
+      cafeId: args.cafeId,
+      expiresAt,
+      remainingSeatsAfterBooking
+    };
+  }
+});
+
+/**
+ * Book a seat for [startTime, endTime) without a seat hold (parallel to hold → finalize flow).
+ * Capacity = max overlapping reservations (pending/confirmed/completed) < total tables.
+ * If [startTime, endTime) overlaps the current instant (`nowMs`), also requires spare physical
+ * capacity (occupied + active holds) so time-based booking aligns with `createSeatHold`.
+ */
+export const createTimeBasedReservation = mutationGeneric({
+  args: {
+    cafeId: v.id("cafe_locations"),
+    userId: v.id("users"),
+    startTime: v.number(),
+    endTime: v.number(),
+    nowMs: v.number(),
+    /** Defaults to `nowMs`. Stored for `extendTimeBasedReservation` repricing. */
+    bookingNowMs: v.optional(v.number())
+  },
+  handler: async (ctx, args) => {
+    if (args.startTime < args.nowMs) {
+      throw new Error("reservation_start_in_past");
+    }
+    if (args.startTime > args.nowMs + RESERVATION_MAX_ADVANCE_MS) {
+      throw new Error("reservation_too_far_in_advance");
+    }
+    if (args.endTime <= args.startTime) {
+      throw new Error("reservation_end_not_after_start");
+    }
+    if (args.endTime - args.startTime < MIN_RESERVATION_DURATION_MS) {
+      throw new Error("reservation_too_short");
+    }
+
+    const cafe = await ctx.db.get(args.cafeId);
+    if (!cafe) throw new Error("cafe_not_found");
+
+    const user = await ctx.db.get(args.userId);
+    if (!user) throw new Error("user_not_found");
+
+    if (!isReservationWithinStoreOpeningHours(args.startTime, args.endTime, cafe)) {
+      throw new Error("outside_opening_hours");
+    }
+
+    const bookingRefMs = args.bookingNowMs ?? args.nowMs;
+
+    let durationHours: number;
+    let costEuro: number;
+    try {
+      const priced = computeTieredReservationPriceEuros(
+        args.startTime,
+        args.endTime,
+        bookingRefMs
+      );
+      durationHours = priced.durationHours;
+      costEuro = priced.costEuro;
+    } catch {
+      throw new Error("invalid_time_range");
+    }
+
+    const overlappingBefore = await countOverlappingReservationsForCafe(
+      ctx,
+      args.cafeId,
+      args.startTime,
+      args.endTime
+    );
+    if (overlappingBefore >= cafe.total_stipulated_tables) {
+      throw new Error("cafe_full_for_slot");
+    }
+
+    if (
+      intervalsOverlapHalfOpen(
+        args.startTime,
+        args.endTime,
+        args.nowMs,
+        args.nowMs + 1
+      )
+    ) {
+      const activeHolds = await countActiveSeatHoldsForCafe(ctx, args.cafeId, args.nowMs);
+      if (usedCapacity(cafe, activeHolds) >= cafe.total_stipulated_tables) {
+        throw new Error("cafe_full");
+      }
+    }
+
+    const reservationId = await ctx.db.insert("reservations", {
+      user_id: args.userId,
+      cafe_id: args.cafeId,
+      start_time: args.startTime,
+      end_time: args.endTime,
+      duration_hours: durationHours,
+      cost: costEuro,
+      pricing_booking_now_ms: bookingRefMs,
+      status: "confirmed",
+      is_verified: false
+    });
+
+    const overlappingAfter = await countOverlappingReservationsForCafe(
+      ctx,
+      args.cafeId,
+      args.startTime,
+      args.endTime
+    );
+    if (overlappingAfter > cafe.total_stipulated_tables) {
+      await ctx.db.patch(reservationId, { status: "cancelled" });
+      throw new Error("cafe_full_for_slot");
+    }
+
+    const remainingSeatsAfterBooking = Math.max(
+      0,
+      cafe.total_stipulated_tables - overlappingAfter
+    );
+
+    return {
+      reservationId,
+      cafeId: args.cafeId,
+      startTime: args.startTime,
+      /** End of the reserved slot (`reservations.end_time`). */
+      expiresAt: args.endTime,
+      durationHours,
+      costEuro,
+      totalCost: costEuro,
+      overlappingReservations: overlappingAfter,
+      remainingSeatsAfterBooking
+    };
+  }
+});
+
+/**
+ * Lengthen a time-based reservation if seats are still available for the wider window.
+ * Total price is recomputed as if the **full** [start, newEnd) had been booked at the original
+ * `pricing_booking_now_ms` (same advance-tier rules + duration marginals).
+ */
+export const extendTimeBasedReservation = mutationGeneric({
+  args: {
+    reservationId: v.id("reservations"),
+    userId: v.id("users"),
+    newEndTime: v.number(),
+    nowMs: v.number()
+  },
+  handler: async (ctx, args) => {
+    const res = await ctx.db.get(args.reservationId);
+    if (!res) throw new Error("reservation_not_found");
+    if (res.user_id !== args.userId) throw new Error("reservation_user_mismatch");
+    if (res.status !== "confirmed") throw new Error("reservation_not_extendable");
+    if (args.newEndTime <= res.end_time) {
+      throw new Error("extension_end_not_after_current");
+    }
+
+    const cafe = await ctx.db.get(res.cafe_id);
+    if (!cafe) throw new Error("cafe_not_found");
+
+    if (args.newEndTime - res.start_time < MIN_RESERVATION_DURATION_MS) {
+      throw new Error("reservation_too_short");
+    }
+
+    if (!isReservationWithinStoreOpeningHours(res.start_time, args.newEndTime, cafe)) {
+      throw new Error("outside_opening_hours");
+    }
+
+    const bookingRefMs = res.pricing_booking_now_ms ?? args.nowMs;
+
+    let priced;
+    try {
+      priced = computeTieredReservationPriceEuros(res.start_time, args.newEndTime, bookingRefMs);
+    } catch {
+      throw new Error("invalid_time_range");
+    }
+
+    const overlappingBefore = await countOverlappingReservationsForCafe(
+      ctx,
+      res.cafe_id,
+      res.start_time,
+      args.newEndTime,
+      args.reservationId
+    );
+    if (overlappingBefore >= cafe.total_stipulated_tables) {
+      throw new Error("cafe_full_for_slot");
+    }
+
+    const prevEnd = res.end_time;
+    const prevDuration = res.duration_hours;
+    const prevCost = res.cost;
+
+    await ctx.db.patch(args.reservationId, {
+      end_time: args.newEndTime,
+      duration_hours: priced.durationHours,
+      cost: priced.costEuro
+    });
+
+    const overlappingAfter = await countOverlappingReservationsForCafe(
+      ctx,
+      res.cafe_id,
+      res.start_time,
+      args.newEndTime,
+      args.reservationId
+    );
+    if (overlappingAfter > cafe.total_stipulated_tables) {
+      await ctx.db.patch(args.reservationId, {
+        end_time: prevEnd,
+        duration_hours: prevDuration,
+        cost: prevCost
+      });
+      throw new Error("cafe_full_for_slot");
+    }
+
+    const remainingSeatsAfterBooking = Math.max(
+      0,
+      cafe.total_stipulated_tables - overlappingAfter
+    );
+
+    return {
+      reservationId: args.reservationId,
+      endTime: args.newEndTime,
+      expiresAt: args.newEndTime,
+      durationHours: priced.durationHours,
+      costEuro: priced.costEuro,
+      totalCost: priced.costEuro,
+      firstHourBaseEuro: priced.firstHourBaseEuro,
+      remainingSeatsAfterBooking
+    };
   }
 });
 
@@ -239,9 +529,19 @@ export const finalizeCouponPurchase = mutationGeneric({
       });
     }
 
+    const cafeFinal = await ctx.db.get(hold.cafe_id);
+    if (!cafeFinal) throw new Error("cafe_not_found");
+    const activeHoldsAfter = await countActiveSeatHoldsForCafe(ctx, hold.cafe_id, args.nowMs);
+    const remainingSeatsAfterBooking = availableSeats(cafeFinal, activeHoldsAfter);
+
     return {
       reservationId,
       couponId,
+      seatHoldId: hold._id,
+      totalCost: args.amountPaid,
+      /** End of the reserved session window (same as `reservations.end_time`). */
+      expiresAt: end,
+      remainingSeatsAfterBooking,
       marginReduced,
       tutorRewarded:
         pricingMode === "competitive_rate" && args.tutorUserId !== undefined

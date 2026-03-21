@@ -1,5 +1,7 @@
 /** Shared map types — no import from `react-native-maps` (web bundle). */
 
+import type { Id } from "../../../convex/_generated/dataModel";
+
 export type MapPoiKind = "study_spot" | "partner_cafe";
 
 /** Unified pin + list row for study spots (directory) and partner cafés (`cafe_locations`). */
@@ -11,6 +13,16 @@ export type MapPoi = {
   lng: number;
   distanceKm: number;
   distanceMeters: number;
+  /** Single display string (m if under 1 km, else km). */
+  distanceLabel: string;
+  /** For `createTimeBasedReservation` (partner cafés only). */
+  cafeId?: Id<"cafe_locations">;
+  /** Store opening hours (partner cafés from `getNearbyCafeLocations`). */
+  timezone_offset_minutes?: number;
+  opens_local_minute?: number;
+  closes_local_minute?: number;
+  /** From `getNearbyCafeLocations` (partner cafés only). */
+  estimatedWalkMinutes?: number;
   /** Short line under the title (e.g. type or seat summary). */
   subtitle: string;
   description?: string;

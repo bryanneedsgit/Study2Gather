@@ -1,8 +1,16 @@
 import { createElement, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { StyleSheet, Text, View } from "react-native";
+import { formatWalkMinutes } from "@/lib/walkTime";
 import { colors } from "@/theme/colors";
 import { radius, space } from "@/theme/layout";
 import type { MapPoi, MapRegion, StudySpotsMapProps } from "./studySpotsMapTypes";
+
+function poiMetaLine(spot: MapPoi): string {
+  const parts: string[] = [];
+  if (spot.estimatedWalkMinutes != null) parts.push(formatWalkMinutes(spot.estimatedWalkMinutes));
+  if (spot.distanceLabel) parts.push(spot.distanceLabel);
+  return parts.join(" · ");
+}
 
 const LEAFLET_CSS = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
 const LEAFLET_JS = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
@@ -184,10 +192,11 @@ export default function StudySpotsMap({
         fillOpacity: 0.92,
         weight: selected ? 3 : 2
       });
+      const meta = poiMetaLine(spot);
       m.bindPopup(
-        `<div class="s2g-popup"><strong>${escapeHtml(spot.name)}</strong><br/>${escapeHtml(
-          spot.subtitle
-        )}</div>`
+        `<div class="s2g-popup"><strong>${escapeHtml(spot.name)}</strong>${
+          meta ? `<br/><span style="opacity:0.85">${escapeHtml(meta)}</span>` : ""
+        }<br/>${escapeHtml(spot.subtitle)}</div>`
       );
       m.on("click", () => {
         onSelect(spot.key);

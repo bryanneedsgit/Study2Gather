@@ -221,6 +221,22 @@ Map/discovery POIs (`study_spots` table). Separate from **`cafe_locations`** (ca
 | `getPartnerStudySpots` | query | `is_partner === true`, sorted by name |
 | `getStudySpotById` | query | Single spot or `null` |
 
+### Partner café map (`convex/cafeLocations.ts`)
+
+| Function | Type | Purpose |
+|----------|------|---------|
+| `getNearbyCafeLocations` | query | `lat`, `lng`, optional `limit`, `maxDistanceKm`; each café includes `distanceKm`, `distanceMeters`, **`estimatedWalkMinutes`**, resolved **`timezone_offset_minutes`**, **`opens_local_minute`**, **`closes_local_minute`** (defaults **08:00–22:00** local if unset; see `convex/cafeHours.ts`) |
+
+### OSM opening hours sync (`convex/cafeOsmSync.ts` + `convex/cafeOsmApply.ts`)
+
+| Function | Type | Purpose |
+|----------|------|---------|
+| `syncCafeHoursFromOsm` | **action** | Calls **Overpass API** (`overpass-api.de`) for nearby OSM `amenity=cafe\|coffee_shop\|fast_food` with `opening_hours`; picks best match by name score + distance; parses a **simple** subset (`Mo-Su …`, `Mo-Fr …`, `Mo-Sa …`, or first `HH:MM-HH:MM`) via `osmOpeningHours.ts`; patches `opens_local_minute`, `closes_local_minute`, `opening_hours_osm_raw`. **Does not** set `timezone_offset_minutes` (keep correct store offset manually / seed). |
+
+CLI: `npx convex run cafeOsmSync:syncCafeHoursFromOsm '{"cafeId":"<id>"}'` — optional `radiusMeters` (30–500, default 150).
+
+**Note:** Full OSM `opening_hours` syntax (public holidays, seasonal, split shifts) is not parsed. Sunday follows the same stored `opens_local_minute` / `closes_local_minute` window as other days unless you set different hours manually after sync.
+
 ### Cafe (`convex/cafe.ts`)
 
 | Function | Type | Purpose |
@@ -228,11 +244,25 @@ Map/discovery POIs (`study_spots` table). Separate from **`cafe_locations`** (ca
 | `checkCafeAvailability` | query | `available_seats`, `is_full`, `can_transact`, `footfall_metric`, `reduce_margin` (stored on cafe), `margin_reduced_by_footfall` (`computeReduceMarginFromFootfall` in `rules.ts`) |
 | `updateCafeMarginFlag` | mutation | Sets `cafe_locations.reduce_margin` from `footfall_metric` vs `FOOTFALL_LOW_THRESHOLD` |
 | `createSeatHold` | mutation | 5-minute hold; rejects when `occupied + active holds >= total` (race-safe in one mutation) |
+| `quoteTimeBasedReservation` | query | `startTime`, `endTime`, **`bookingNowMs`** → `costEuro` = flat advance (€3/€4/€5) + stay (`H`× rate by total hours: ≤1h €3/h, 1–4h €2.5/h, &gt;4h €1.5/h), **`breakdown`**, etc. |
+| `createTimeBasedReservation` | mutation | Same args + optional **`bookingNowMs`** (defaults to `nowMs`); stores **`pricing_booking_now_ms`** for extensions; max **7 days** ahead (`rules.RESERVATION_MAX_ADVANCE_MS`); opening-hours + capacity rules unchanged |
+| `extendTimeBasedReservation` | mutation | `reservationId`, `userId`, **`newEndTime`**, `nowMs` — recomputes **full** price for `[start, newEnd)` using stored **`pricing_booking_now_ms`** (same formula as initial quote: flat advance + stay ladder); requires `confirmed`, new end after current end, capacity for widened window |
 | `finalizeCouponPurchase` | mutation | Converts hold, increments cafe occupancy, creates reservation + coupon; `margin_reduced` uses stored flag **or** footfall heuristic; competitive-rate → tutor points via shared tutor reward helper |
 | `grantTutorPointsReward` | mutation | `tutorId`, `amount`, optional `context` — add points to tutor (generic) |
 | `handleTutorCompetitiveRate` | mutation | Same default amount as competitive checkout (`TUTOR_REWARD_POINTS`); scaffold for tests/admin — avoid double-award with `finalizeCouponPurchase` |
 | `releaseExpiredSeatHolds` | mutation | Marks expired active holds |
 | `verifyCafePresence` | mutation | Marks reservation verified / completed |
+
+**Reservation / hold mutation returns (for UI sync):**
+
+| Mutation | Success payload (highlights) |
+|----------|------------------------------|
+| `createSeatHold` | `holdId`, `seatHoldId`, `cafeId`, `expiresAt` (hold expiry ms), `remainingSeatsAfterBooking` (free seats **now** after this hold) |
+| `createTimeBasedReservation` | `reservationId`, `cafeId`, `startTime`, `expiresAt` (= slot end), `durationHours`, `costEuro` + **`totalCost`**, `overlappingReservations`, **`remainingSeatsAfterBooking`** |
+| `extendTimeBasedReservation` | `reservationId`, `endTime`, `expiresAt`, `durationHours`, `costEuro`, **`totalCost`**, **`firstHourBaseEuro`** (= advance flat tier), **`remainingSeatsAfterBooking`** |
+| `finalizeCouponPurchase` | `reservationId`, `couponId`, **`seatHoldId`**, **`totalCost`** (= `amountPaid`), **`expiresAt`** (= reservation window end), **`remainingSeatsAfterBooking`** (free seats **now** after checkout), `marginReduced`, `tutorRewarded` |
+
+Failures throw `Error` with `.message` set to codes such as `cafe_full`, `cafe_full_for_slot`, `hold_expired`, etc. The app can use `src/lib/cafeReservationUi.ts` (`getCafeReservationMutationError`, `isCafeFullError`) to branch UI.
 
 ### Rewards (`convex/rewards.ts`)
 

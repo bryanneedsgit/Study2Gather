@@ -1,6 +1,21 @@
 /**
  * Haversine distance on the WGS84 sphere (meters).
  */
+
+/** Assumed average walking speed for simple ETAs (straight-line / “as the crow flies” distance). */
+export const WALK_SPEED_KMH = 5;
+
+/**
+ * Whole minutes to walk straight-line `distanceMeters` at {@link WALK_SPEED_KMH} km/h.
+ * Deterministic: `max(1, round((distanceKm / WALK_SPEED_KMH) * 60))` with `distanceKm = meters / 1000`.
+ */
+export function estimatedWalkMinutesFromDistanceMeters(distanceMeters: number): number {
+  if (!Number.isFinite(distanceMeters) || distanceMeters <= 0) return 1;
+  const distanceKm = distanceMeters / 1000;
+  const minutes = Math.round((distanceKm / WALK_SPEED_KMH) * 60);
+  return Math.max(1, minutes);
+}
+
 export function distanceMeters(
   a: { lat: number; lng: number },
   b: { lat: number; lng: number }

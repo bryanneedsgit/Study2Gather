@@ -339,6 +339,17 @@ export const seedCafeLocations = mutationGeneric({
     const inserted: string[] = [];
     const skipped: string[] = [];
 
+    const sgHours = {
+      timezone_offset_minutes: 480,
+      opens_local_minute: 8 * 60,
+      closes_local_minute: 22 * 60
+    };
+    const euHours = {
+      timezone_offset_minutes: 60,
+      opens_local_minute: 8 * 60,
+      closes_local_minute: 21 * 60
+    };
+
     for (const row of ALL_SEED_CAFE_LOCATIONS) {
       if (!args.forceDuplicateNames) {
         const existing = await ctx.db
@@ -350,7 +361,8 @@ export const seedCafeLocations = mutationGeneric({
           continue;
         }
       }
-      const id = await ctx.db.insert("cafe_locations", { ...row });
+      const hours = row.lat < 25 && row.lng > 100 ? sgHours : euHours;
+      const id = await ctx.db.insert("cafe_locations", { ...row, ...hours });
       inserted.push(id);
     }
 
