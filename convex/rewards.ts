@@ -1,6 +1,6 @@
 /**
  * Rewards catalog + point adjustments + redemptions.
- * Balance of truth for total points remains `users.points_total` (shared with lock-in / cafe until migrated).
+ * Balance of truth for total points remains `users.points` (shared with lock-in / cafe until migrated).
  */
 import type { GenericMutationCtx } from "convex/server";
 import { mutationGeneric, queryGeneric } from "convex/server";
@@ -20,7 +20,7 @@ function assertPositiveIntegerAmount(n: number, field: string): void {
 }
 
 /**
- * Applies a signed delta to `users.points_total` and appends `points_ledger`.
+ * Applies a signed delta to `users.points` and appends `points_ledger`.
  * Convex does not provide row locks; concurrent direct patches elsewhere can still race — prefer routing
  * all balance changes through this module over time for consistency.
  */
@@ -40,12 +40,12 @@ async function applyPointsDelta(
   if (!user) {
     throw new Error("user_not_found");
   }
-  const current = user.points_total;
+  const current = user.points ?? 0;
   const next = current + args.delta;
   if (next < 0) {
     throw new Error("insufficient_points");
   }
-  await ctx.db.patch(args.userId, { points_total: next });
+  await ctx.db.patch(args.userId, { points: next });
   await ctx.db.insert("points_ledger", {
     user_id: args.userId,
     delta: args.delta,
@@ -101,7 +101,7 @@ export const getUserPoints = queryGeneric({
   handler: async (ctx, args) => {
     const user = await ctx.db.get(args.userId);
     if (!user) return null;
-    return { pointsTotal: user.points_total };
+    return { pointsTotal: user.points ?? 0 };
   }
 });
 
@@ -151,7 +151,7 @@ export const redeemReward = mutationGeneric({
     if (!user) {
       return { ok: false as const, reason: "user_not_found" as const };
     }
-    if (user.points_total < reward.cost_points) {
+    if ((user.points ?? 0) < reward.cost_points) {
       return { ok: false as const, reason: "insufficient_points" as const };
     }
 
