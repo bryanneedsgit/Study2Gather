@@ -1,25 +1,22 @@
 import { Button, StyleSheet, Text, View } from "react-native";
 import { useMutation, useQuery } from "convex/react";
-import type { FunctionReference } from "convex/server";
 import { PlaceholderScreen } from "@/components/PlaceholderScreen";
 import { useSession } from "@/context/SessionContext";
-
-const getBackendHealth = "queries:getBackendHealth" as unknown as FunctionReference<"query">;
-const incrementTestCounter = "mutations:incrementTestCounter" as unknown as FunctionReference<"mutation">;
+import { api } from "@/lib/convexApi";
 
 export function ProfileScreen() {
   const { user, signOut } = useSession();
   const smokeKey = user?.email?.replace(/[^a-z0-9]/gi, "-") ?? "profile-smoke-test";
 
-  const backendStatus = useQuery(getBackendHealth, { key: smokeKey });
-  const increment = useMutation(incrementTestCounter);
+  const backendStatus = useQuery(api.queries.getBackendHealth, { key: smokeKey });
+  const increment = useMutation(api.mutations.incrementTestCounter);
 
   return (
     <PlaceholderScreen title="Profile" subtitle="Account and preferences.">
       {user ? (
         <View style={styles.account}>
           <Text style={styles.label}>Email</Text>
-          <Text style={styles.value}>{user.email}</Text>
+          <Text style={styles.value}>{user.email ?? "—"}</Text>
           {user.school ? (
             <>
               <Text style={styles.label}>School</Text>
@@ -39,7 +36,7 @@ export function ProfileScreen() {
             </>
           ) : null}
           <Text style={styles.label}>Points</Text>
-          <Text style={styles.value}>{user.points_total}</Text>
+          <Text style={styles.value}>{user.points}</Text>
         </View>
       ) : null}
 

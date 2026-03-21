@@ -9,7 +9,7 @@ export const getBackendHealth = queryGeneric({
     const email = `smoke-${args.key.replace(/[^a-z0-9-]/gi, "")}@study2gather.test`;
     const smoke = await ctx.db
       .query("users")
-      .withIndex("by_email", (q) => q.eq("email", email))
+      .withIndex("email", (q) => q.eq("email", email))
       .first();
 
     const allUsers = await ctx.db.query("users").collect();
@@ -17,7 +17,7 @@ export const getBackendHealth = queryGeneric({
     return {
       ok: true,
       message: "Convex query connected",
-      count: smoke?.points_total ?? 0,
+      count: smoke?.points ?? 0,
       totalUsers: allUsers.length
     };
   }

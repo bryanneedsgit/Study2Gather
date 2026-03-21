@@ -211,7 +211,7 @@ export const finalizeCouponPurchase = mutationGeneric({
       const tutor = await ctx.db.get(args.tutorUserId);
       if (tutor) {
         await ctx.db.patch(args.tutorUserId, {
-          points_total: tutor.points_total + TUTOR_REWARD_POINTS
+          points: (tutor.points ?? 0) + TUTOR_REWARD_POINTS
         });
       }
     }

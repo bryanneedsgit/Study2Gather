@@ -2,11 +2,13 @@ import "react-native-gesture-handler";
 import { StatusBar } from "expo-status-bar";
 import { NavigationContainer } from "@react-navigation/native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { ConvexProvider } from "convex/react";
+import { ConvexAuthProvider } from "@convex-dev/auth/react";
 import { RootNavigator } from "@/navigation/RootNavigator";
 import { theme } from "@/theme";
 import { convex } from "@/lib/convex";
+import { convexAuthStorage } from "@/lib/convexAuthStorage";
 import { SessionProvider } from "@/context/SessionContext";
+import { LockInSessionProvider } from "@/context/LockInSessionContext";
 import { ConfigureBackendScreen } from "@/screens/ConfigureBackendScreen";
 
 export default function App() {
@@ -22,15 +24,17 @@ export default function App() {
   }
 
   return (
-    <ConvexProvider client={convex}>
+    <ConvexAuthProvider client={convex} storage={convexAuthStorage}>
       <SessionProvider>
-        <SafeAreaProvider>
-          <NavigationContainer theme={theme.navigationTheme}>
-            <StatusBar style="dark" />
-            <RootNavigator />
-          </NavigationContainer>
-        </SafeAreaProvider>
+        <LockInSessionProvider>
+          <SafeAreaProvider>
+            <NavigationContainer theme={theme.navigationTheme}>
+              <StatusBar style="dark" />
+              <RootNavigator />
+            </NavigationContainer>
+          </SafeAreaProvider>
+        </LockInSessionProvider>
       </SessionProvider>
-    </ConvexProvider>
+    </ConvexAuthProvider>
   );
 }
