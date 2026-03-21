@@ -47,10 +47,11 @@ type UserStats = {
   completedSessions: number;
 };
 
-function displayNameFromUser(u: { name?: string; email: string }): string {
+function displayNameFromUser(u: { name?: string; email?: string }): string {
   if (u.name && u.name.trim().length > 0) return u.name.trim();
-  const local = u.email.split("@")[0] ?? "student";
-  return local;
+  const email = u.email?.trim();
+  if (email) return email.split("@")[0] ?? "student";
+  return "student";
 }
 
 function compareRows(a: UserStats, b: UserStats): number {

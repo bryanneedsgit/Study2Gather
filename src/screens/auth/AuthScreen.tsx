@@ -9,13 +9,16 @@ import {
   TouchableOpacity,
   View
 } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AuthHelpCallout } from "@/components/AuthHelpCallout";
-import { FlowProgress } from "@/components/FlowProgress";
 import { FormErrorBanner } from "@/components/FormErrorBanner";
 import { FormField } from "@/components/FormField";
+import { LogoMark } from "@/components/study2gather/LogoMark";
+import { StudyBackground } from "@/components/study2gather/StudyBackground";
 import { env } from "@/config/env";
 import { useSession } from "@/context/SessionContext";
+import { sg } from "@/theme/study2gatherUi";
 import { formatUnknownError } from "@/utils/errors";
 import { validateEmail } from "@/utils/validation";
 
@@ -75,168 +78,209 @@ export function AuthScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
-        <ScrollView
-          contentContainerStyle={styles.scroll}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
+      <StudyBackground>
+        <KeyboardAvoidingView
+          style={styles.flex}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
         >
-          <FlowProgress currentStep={1} totalSteps={2} subtitle="Account" />
+          <ScrollView
+            contentContainerStyle={styles.scroll}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.header}>
+              <LogoMark size={80} />
+              <Text style={styles.brandGradient}>Study2Gather</Text>
+              <Text style={styles.tagline}>Beat burnout. Study together.</Text>
+            </View>
 
-          <Text style={styles.brand}>Study2Gather</Text>
-          <Text style={styles.headline}>Sign in or create account</Text>
-          <Text style={styles.lead}>
-            Convex Auth with email + password. New accounts use the same form — switch to &quot;Create
-            account&quot; for first-time sign up (min. 8 character password).
-          </Text>
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>{flow === "signIn" ? "Welcome back" : "Create account"}</Text>
+              <Text style={styles.cardSubtitle}>
+                {flow === "signIn"
+                  ? "Ready to lock in with your squad?"
+                  : "Join with your school email and a secure password."}
+              </Text>
 
-          <View style={styles.card}>
-            <FormField
-              label="Email address"
-              required
-              hint="Used to sign in on this and other devices."
-              value={email}
-              onChangeText={(t) => {
-                setEmail(t);
-                setEmailError(null);
-                setFormError(null);
-              }}
-              placeholder="you@school.edu"
-              autoCapitalize="none"
-              keyboardType="email-address"
-              autoComplete="email"
-              error={emailError}
-              editable={!submitting}
-            />
+              <FormField
+                theme="dark"
+                label="Email"
+                required
+                hint="Used to sign in on this and other devices."
+                value={email}
+                onChangeText={(t) => {
+                  setEmail(t);
+                  setEmailError(null);
+                  setFormError(null);
+                }}
+                placeholder="you@school.edu"
+                autoCapitalize="none"
+                keyboardType="email-address"
+                autoComplete="email"
+                error={emailError}
+                editable={!submitting}
+              />
 
-            <FormField
-              label="Password"
-              required
-              hint="At least 8 characters."
-              value={password}
-              onChangeText={(t) => {
-                setPassword(t);
-                setPasswordError(null);
-                setFormError(null);
-              }}
-              placeholder="••••••••"
-              secureTextEntry
-              autoCapitalize="none"
-              autoComplete={flow === "signUp" ? "password-new" : "password"}
-              error={passwordError}
-              editable={!submitting}
-            />
+              <FormField
+                theme="dark"
+                label="Password"
+                required
+                hint="At least 8 characters."
+                value={password}
+                onChangeText={(t) => {
+                  setPassword(t);
+                  setPasswordError(null);
+                  setFormError(null);
+                }}
+                placeholder="••••••••"
+                secureTextEntry
+                autoCapitalize="none"
+                autoComplete={flow === "signUp" ? "password-new" : "password"}
+                error={passwordError}
+                editable={!submitting}
+              />
 
-            <FormErrorBanner message={formError} />
+              <FormErrorBanner message={formError} theme="dark" />
 
-            <TouchableOpacity
-              style={[styles.primary, submitting && styles.primaryDisabled]}
-              onPress={onSubmit}
-              disabled={submitting}
-              activeOpacity={0.85}
-            >
-              {submitting ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                <Text style={styles.primaryText}>
-                  {flow === "signIn" ? "Sign in" : "Create account"}
+              <TouchableOpacity
+                onPress={onSubmit}
+                disabled={submitting}
+                activeOpacity={0.92}
+                style={styles.ctaWrap}
+              >
+                <LinearGradient
+                  colors={["#10b981", "#06b6d4", "#f59e0b"]}
+                  start={{ x: 0, y: 0.5 }}
+                  end={{ x: 1, y: 0.5 }}
+                  style={[styles.cta, submitting && styles.ctaDisabled]}
+                >
+                  {submitting ? (
+                    <ActivityIndicator color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.ctaText}>{flow === "signIn" ? "Lock in" : "Create account"}</Text>
+                  )}
+                </LinearGradient>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.switchFlow}
+                onPress={() => {
+                  setFlow((f) => (f === "signIn" ? "signUp" : "signIn"));
+                  setFormError(null);
+                }}
+                disabled={submitting}
+              >
+                <Text style={styles.switchFlowText}>
+                  {flow === "signIn" ? "New here? Join the squad" : "Have an account? Sign in"}
                 </Text>
-              )}
-            </TouchableOpacity>
+              </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.secondary}
-              onPress={() => {
-                setFlow((f) => (f === "signIn" ? "signUp" : "signIn"));
-                setFormError(null);
-              }}
-              disabled={submitting}
-            >
-              <Text style={styles.secondaryText}>
-                {flow === "signIn" ? "Need an account? Create one" : "Have an account? Sign in"}
-              </Text>
-            </TouchableOpacity>
+              {__DEV__ && env.convexUrl ? (
+                <Text style={styles.devHint} numberOfLines={2}>
+                  Dev: Convex URL ({env.convexUrl.slice(0, 44)}…)
+                </Text>
+              ) : null}
+            </View>
 
-            {__DEV__ && env.convexUrl ? (
-              <Text style={styles.devHint} numberOfLines={2}>
-                Dev: Convex URL set ({env.convexUrl.slice(0, 40)}…)
-              </Text>
-            ) : null}
-          </View>
+            <AuthHelpCallout theme="dark" />
 
-          <AuthHelpCallout />
-        </ScrollView>
-      </KeyboardAvoidingView>
+            <Text style={styles.legal}>By continuing, you agree to the app&apos;s terms and privacy practices.</Text>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </StudyBackground>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#F3F4F6" },
+  safe: { flex: 1, backgroundColor: sg.bg },
   flex: { flex: 1 },
   scroll: {
     flexGrow: 1,
     paddingHorizontal: 20,
-    paddingBottom: 40
+    paddingBottom: 40,
+    paddingTop: 8,
+    maxWidth: 440,
+    width: "100%",
+    alignSelf: "center"
   },
-  brand: {
-    fontSize: 32,
-    fontWeight: "800",
-    color: "#111827",
+  header: {
+    alignItems: "center",
+    marginBottom: 28
+  },
+  brandGradient: {
+    marginTop: 16,
+    fontSize: 28,
+    fontWeight: "900",
     letterSpacing: -0.5,
-    marginBottom: 8
+    color: sg.emerald
   },
-  headline: {
-    fontSize: 22,
-    fontWeight: "700",
-    color: "#111827",
-    marginBottom: 10,
-    letterSpacing: -0.3
-  },
-  lead: {
-    fontSize: 15,
-    color: "#6B7280",
-    lineHeight: 22,
-    marginBottom: 20
+  tagline: {
+    marginTop: 6,
+    fontSize: 14,
+    color: sg.textMuted
   },
   card: {
-    backgroundColor: "#FFFFFF",
     borderRadius: 16,
     padding: 20,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3
+    borderColor: sg.borderGlass,
+    backgroundColor: sg.cardGlass
   },
-  primary: {
-    backgroundColor: "#2563EB",
-    borderRadius: 12,
+  cardTitle: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: sg.text,
+    textAlign: "center",
+    marginBottom: 6
+  },
+  cardSubtitle: {
+    fontSize: 14,
+    color: sg.textSoft,
+    textAlign: "center",
+    marginBottom: 20,
+    lineHeight: 20
+  },
+  ctaWrap: {
+    marginTop: 8,
+    borderRadius: 14,
+    overflow: "hidden",
+    shadowColor: "#10b981",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 6
+  },
+  cta: {
     paddingVertical: 16,
     alignItems: "center",
-    marginTop: 8
+    justifyContent: "center",
+    minHeight: 52
   },
-  primaryDisabled: { opacity: 0.65 },
-  primaryText: { color: "#FFFFFF", fontSize: 17, fontWeight: "700" },
-  secondary: {
-    marginTop: 16,
+  ctaDisabled: { opacity: 0.7 },
+  ctaText: { color: "#FFFFFF", fontSize: 17, fontWeight: "800" },
+  switchFlow: {
+    marginTop: 18,
     alignItems: "center",
     paddingVertical: 8
   },
-  secondaryText: {
-    color: "#2563EB",
+  switchFlowText: {
+    color: sg.emerald,
     fontSize: 15,
-    fontWeight: "600"
+    fontWeight: "700"
   },
   devHint: {
     fontSize: 11,
-    color: "#9CA3AF",
+    color: "rgba(255,255,255,0.35)",
     marginTop: 16,
+    lineHeight: 16,
+    textAlign: "center"
+  },
+  legal: {
+    marginTop: 20,
+    fontSize: 11,
+    color: "rgba(255,255,255,0.28)",
+    textAlign: "center",
     lineHeight: 16
   }
 });

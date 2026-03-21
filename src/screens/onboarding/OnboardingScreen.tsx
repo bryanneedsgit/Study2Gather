@@ -10,11 +10,14 @@ import {
   TouchableOpacity,
   View
 } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { COURSE_OPTIONS, SCHOOL_OPTIONS } from "@/constants/onboardingOptions";
 import { FlowProgress } from "@/components/FlowProgress";
 import { FormErrorBanner } from "@/components/FormErrorBanner";
 import { FormField } from "@/components/FormField";
+import { StudyBackground } from "@/components/study2gather/StudyBackground";
+import { sg } from "@/theme/study2gatherUi";
 import { useSession } from "@/context/SessionContext";
 import { formatUnknownError } from "@/utils/errors";
 import { validateAgeInput, validateRequired } from "@/utils/validation";
@@ -116,31 +119,32 @@ export function OnboardingScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
-        <ScrollView
-          contentContainerStyle={styles.scroll}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
+      <StudyBackground>
+        <KeyboardAvoidingView
+          style={styles.flex}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
         >
-          <FlowProgress currentStep={2} totalSteps={2} subtitle="Your profile" />
+          <ScrollView
+            contentContainerStyle={styles.scroll}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <FlowProgress currentStep={2} totalSteps={2} subtitle="Your profile" theme="dark" />
 
-          <Text style={styles.title}>Finish your profile</Text>
-          <Text style={styles.lead}>
-            We use this for study partner matching. You can update details later in Profile.
-          </Text>
-          {user?.email ? (
-            <View style={styles.emailPill}>
-              <Text style={styles.emailLabel}>Signed in as</Text>
-              <Text style={styles.emailValue}>{user.email}</Text>
-            </View>
-          ) : null}
+            <Text style={styles.title}>Finish your profile</Text>
+            <Text style={styles.lead}>
+              We use this for study partner matching. You can update details later in Profile.
+            </Text>
+            {user?.email ? (
+              <View style={styles.emailPill}>
+                <Text style={styles.emailLabel}>Signed in as</Text>
+                <Text style={styles.emailValue}>{user.email}</Text>
+              </View>
+            ) : null}
 
-          <View style={styles.card}>
-            <SectionLabel>School</SectionLabel>
-            <Text style={styles.hint}>Choose a campus or tap Other to type your own.</Text>
+            <View style={styles.card}>
+              <SectionLabel>School</SectionLabel>
+              <Text style={styles.hint}>Choose a campus or tap Other to type your own.</Text>
             <OptionChips
               options={SCHOOL_OPTIONS}
               value={schoolChoice}
@@ -185,6 +189,7 @@ export function OnboardingScreen() {
             ) : null}
             {courseChoice === "Other" ? (
               <FormField
+                theme="dark"
                 label="Course name"
                 required
                 hint="e.g. course code or title."
@@ -202,6 +207,7 @@ export function OnboardingScreen() {
             <View style={styles.sectionSpacer} />
 
             <FormField
+              theme="dark"
               label="Age"
               required
               hint="You must be at least 16 years old."
@@ -209,7 +215,7 @@ export function OnboardingScreen() {
             >
               <TextInput
                 placeholder="e.g. 20"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor="rgba(255,255,255,0.35)"
                 value={ageText}
                 onChangeText={(t) => {
                   setAgeText(t);
@@ -222,78 +228,81 @@ export function OnboardingScreen() {
               />
             </FormField>
 
-            <FormErrorBanner message={formError} />
+            <FormErrorBanner message={formError} theme="dark" />
 
             <TouchableOpacity
-              style={[styles.primary, submitting && styles.primaryDisabled]}
               onPress={onSubmit}
               disabled={submitting}
-              activeOpacity={0.85}
+              activeOpacity={0.92}
+              style={styles.ctaWrap}
             >
-              {submitting ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                <Text style={styles.primaryText}>Continue to Discover</Text>
-              )}
+              <LinearGradient
+                colors={["#10b981", "#06b6d4", "#f59e0b"]}
+                start={{ x: 0, y: 0.5 }}
+                end={{ x: 1, y: 0.5 }}
+                style={[styles.primary, submitting && styles.primaryDisabled]}
+              >
+                {submitting ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.primaryText}>Continue to Discover</Text>
+                )}
+              </LinearGradient>
             </TouchableOpacity>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+      </StudyBackground>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#F3F4F6" },
+  safe: { flex: 1, backgroundColor: sg.bg },
   flex: { flex: 1 },
-  scroll: { paddingHorizontal: 20, paddingBottom: 40 },
+  scroll: { paddingHorizontal: 20, paddingBottom: 40, maxWidth: 480, alignSelf: "center", width: "100%" },
   title: {
     fontSize: 26,
     fontWeight: "800",
-    color: "#111827",
+    color: "#FFFFFF",
     letterSpacing: -0.4,
     marginBottom: 8
   },
   lead: {
     fontSize: 15,
-    color: "#6B7280",
+    color: sg.textMuted,
     lineHeight: 22,
     marginBottom: 16
   },
   emailPill: {
     alignSelf: "flex-start",
-    backgroundColor: "#EFF6FF",
+    backgroundColor: "rgba(16, 185, 129, 0.12)",
     borderWidth: 1,
-    borderColor: "#BFDBFE",
+    borderColor: "rgba(74, 222, 128, 0.35)",
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 10,
     marginBottom: 20
   },
-  emailLabel: { fontSize: 11, fontWeight: "700", color: "#1D4ED8", textTransform: "uppercase" },
-  emailValue: { fontSize: 15, fontWeight: "600", color: "#1E3A8A", marginTop: 2 },
+  emailLabel: { fontSize: 11, fontWeight: "700", color: sg.emerald, textTransform: "uppercase" },
+  emailValue: { fontSize: 15, fontWeight: "600", color: "#FFFFFF", marginTop: 2 },
   card: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: sg.cardGlass,
     borderRadius: 16,
     padding: 20,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3
+    borderColor: sg.borderGlass
   },
   sectionLabel: {
     fontSize: 15,
     fontWeight: "700",
-    color: "#111827",
+    color: "rgba(255,255,255,0.92)",
     marginBottom: 6,
     letterSpacing: -0.2
   },
   hint: {
     fontSize: 13,
-    color: "#6B7280",
+    color: sg.textMuted,
     lineHeight: 18,
     marginBottom: 12
   },
@@ -303,47 +312,51 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 999,
-    backgroundColor: "#F3F4F6",
+    backgroundColor: "rgba(255,255,255,0.06)",
     borderWidth: 1,
-    borderColor: "#E5E7EB",
+    borderColor: sg.borderGlass,
     marginRight: 8,
     marginBottom: 8
   },
   chipSelected: {
-    backgroundColor: "#DBEAFE",
-    borderColor: "#2563EB"
+    backgroundColor: "rgba(34, 211, 238, 0.15)",
+    borderColor: sg.cyan
   },
-  chipText: { fontSize: 14, color: "#374151", fontWeight: "600" },
-  chipTextSelected: { color: "#1D4ED8" },
+  chipText: { fontSize: 14, color: "rgba(255,255,255,0.75)", fontWeight: "600" },
+  chipTextSelected: { color: sg.cyan },
   inlineError: {
     fontSize: 13,
-    color: "#B91C1C",
+    color: "#FCA5A5",
     fontWeight: "600",
     marginTop: 8,
     marginBottom: 4
   },
   ageInput: {
     borderWidth: 1,
-    borderColor: "#D1D5DB",
+    borderColor: "rgba(255,255,255,0.1)",
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 14,
     fontSize: 16,
-    color: "#111827",
-    backgroundColor: "#FFFFFF"
+    color: "#FFFFFF",
+    backgroundColor: "rgba(255,255,255,0.05)"
   },
   ageInputError: {
-    borderColor: "#DC2626",
+    borderColor: "#F87171",
     borderWidth: 2,
-    backgroundColor: "#FFFBFB"
+    backgroundColor: "rgba(127,29,29,0.25)"
+  },
+  ctaWrap: {
+    marginTop: 12,
+    borderRadius: 14,
+    overflow: "hidden"
   },
   primary: {
-    backgroundColor: "#2563EB",
-    borderRadius: 12,
     paddingVertical: 16,
     alignItems: "center",
-    marginTop: 12
+    minHeight: 52,
+    justifyContent: "center"
   },
   primaryDisabled: { opacity: 0.65 },
-  primaryText: { color: "#FFFFFF", fontSize: 17, fontWeight: "700" }
+  primaryText: { color: "#FFFFFF", fontSize: 17, fontWeight: "800" }
 });

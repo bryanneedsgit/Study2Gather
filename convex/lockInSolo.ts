@@ -13,6 +13,7 @@ import {
   localHourFromUtcMs,
   pointsForIntervals
 } from "./rules";
+import { userPointsBalance } from "./userPoints";
 
 /** Public mapping for UI + web clients (duration → points formula). */
 export const getLockInPointsPolicy = queryGeneric({
@@ -125,7 +126,7 @@ export const endSoloLockIn = mutationGeneric({
     const cooldownUntil = args.endedAtMs + COOLDOWN_AFTER_CAP_MS;
 
     await ctx.db.patch(args.userId, {
-      points: (user.points ?? 0) + points,
+      points: userPointsBalance(user) + points,
       ...(hitSessionCap ? { cooldown_until: cooldownUntil } : {})
     });
 

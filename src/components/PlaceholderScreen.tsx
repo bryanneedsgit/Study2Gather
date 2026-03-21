@@ -1,39 +1,41 @@
 import { ReactNode } from "react";
 import { StyleSheet, Text, View } from "react-native";
+import { ScreenContainer } from "@/components/ScreenContainer";
+import { colors } from "@/theme/colors";
+import { space } from "@/theme/layout";
 
 interface PlaceholderScreenProps {
   title: string;
   subtitle: string;
   children?: ReactNode;
+  scroll?: boolean;
 }
 
-export function PlaceholderScreen({ title, subtitle, children }: PlaceholderScreenProps) {
+export function PlaceholderScreen({ title, subtitle, children, scroll = true }: PlaceholderScreenProps) {
   return (
-    <View style={styles.container}>
+    <ScreenContainer scroll={scroll}>
       <Text style={styles.title}>{title}</Text>
       <Text style={styles.subtitle}>{subtitle}</Text>
       <View style={styles.content}>{children}</View>
-    </View>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 20,
-    backgroundColor: "#FFFFFF"
-  },
   title: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: "#111827"
+    fontSize: 28,
+    fontWeight: "800",
+    color: colors.textPrimary,
+    letterSpacing: -0.6,
+    marginBottom: space.sm
   },
   subtitle: {
-    marginTop: 6,
-    fontSize: 14,
-    color: "#4B5563"
+    fontSize: 15,
+    lineHeight: 22,
+    color: colors.textSecondary,
+    marginBottom: space.lg
   },
   content: {
-    marginTop: 16
+    marginTop: space.sm
   }
 });
