@@ -193,9 +193,12 @@ Map/discovery POIs (`study_spots` table). Separate from **`cafe_locations`** (ca
 
 | Function | Type | Purpose |
 |----------|------|---------|
-| `checkCafeAvailability` | query | `available_seats`, `is_full`, `can_transact`, `footfall_metric`, `reduce_margin` (stored on cafe), `margin_reduced_by_footfall` (same heuristic as coupon `margin_reduced`) |
+| `checkCafeAvailability` | query | `available_seats`, `is_full`, `can_transact`, `footfall_metric`, `reduce_margin` (stored on cafe), `margin_reduced_by_footfall` (`computeReduceMarginFromFootfall` in `rules.ts`) |
+| `updateCafeMarginFlag` | mutation | Sets `cafe_locations.reduce_margin` from `footfall_metric` vs `FOOTFALL_LOW_THRESHOLD` |
 | `createSeatHold` | mutation | 5-minute hold; rejects when `occupied + active holds >= total` (race-safe in one mutation) |
-| `finalizeCouponPurchase` | mutation | Converts hold, increments cafe occupancy, creates reservation + coupon, optional tutor points |
+| `finalizeCouponPurchase` | mutation | Converts hold, increments cafe occupancy, creates reservation + coupon; `margin_reduced` uses stored flag **or** footfall heuristic; competitive-rate → tutor points via shared tutor reward helper |
+| `grantTutorPointsReward` | mutation | `tutorId`, `amount`, optional `context` — add points to tutor (generic) |
+| `handleTutorCompetitiveRate` | mutation | Same default amount as competitive checkout (`TUTOR_REWARD_POINTS`); scaffold for tests/admin — avoid double-award with `finalizeCouponPurchase` |
 | `releaseExpiredSeatHolds` | mutation | Marks expired active holds |
 | `verifyCafePresence` | mutation | Marks reservation verified / completed |
 
