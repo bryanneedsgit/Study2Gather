@@ -11,7 +11,7 @@ import {
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as Location from "expo-location";
 import { useQuery } from "convex/react";
-import { useFocusEffect, useIsFocused } from "@react-navigation/native";
+import { useFocusEffect } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppCard } from "@/components/AppCard";
 import { LogoutLink } from "@/components/HeaderLogoutButton";
@@ -28,7 +28,8 @@ type FailureState = { title: string; subtitle: string } | null;
 export function CheckInScreen() {
   const insets = useSafeAreaInsets();
   const { user } = useSession();
-  const isFocused = useIsFocused();
+  /** useIsFocused() can stay false incorrectly with nested stacks + tabs; useFocusEffect matches real tab focus. */
+  const [screenFocused, setScreenFocused] = useState(false);
   const [permission, requestPermission] = useCameraPermissions();
   const [lastData, setLastData] = useState<string | null>(null);
   const [paused, setPaused] = useState(false);
@@ -46,14 +47,6 @@ export function CheckInScreen() {
 
   const [androidCameraKey, setAndroidCameraKey] = useState(0);
 
-  /** Ask for camera + location every time this tab is focused (OS may not re-show dialog if already allowed). */
-  useFocusEffect(
-    useCallback(() => {
-      void requestPermission();
-      void Location.requestForegroundPermissionsAsync();
-    }, [requestPermission])
-  );
-
   const resetScan = useCallback(() => {
     setLastData(null);
     setPaused(false);
@@ -65,6 +58,19 @@ export function CheckInScreen() {
       setAndroidCameraKey((k) => k + 1);
     }
   }, []);
+
+  /** Ask for camera + location when this tab is focused; reset scan state so the camera isn’t stuck off after a prior scan. */
+  useFocusEffect(
+    useCallback(() => {
+      setScreenFocused(true);
+      resetScan();
+      void requestPermission();
+      void Location.requestForegroundPermissionsAsync();
+      return () => {
+        setScreenFocused(false);
+      };
+    }, [requestPermission, resetScan])
+  );
 
   const handleBarcodeScanned = useCallback(
     (event: { data: string }) => {
@@ -133,21 +139,6 @@ export function CheckInScreen() {
     })();
   }, [failure, lastData, venuePreview, user?._id, runCheckIn]);
 
-  if (Platform.OS === "web") {
-    return (
-      <ScreenContainer tabTitle="Check in">
-        <Text style={styles.webBody}>
-          QR check-in needs the camera. Use the Study2Gather app on a phone or tablet for the best experience.
-        </Text>
-        <AppCard muted style={styles.webCard}>
-          <Text style={styles.webHint}>
-            Scanning in the browser isn&apos;t available yet — open this screen in the mobile app to scan codes.
-          </Text>
-        </AppCard>
-      </ScreenContainer>
-    );
-  }
-
   if (!permission) {
     return (
       <ScreenContainer scroll={false} tabTitle="Check in">
@@ -161,19 +152,31 @@ export function CheckInScreen() {
 
   if (!permission.granted) {
     const blockedNoPrompt = permission.canAskAgain === false;
+    const isWeb = Platform.OS === "web";
     return (
       <ScreenContainer tabTitle="Check in">
         <Text style={styles.permTitle}>Camera access</Text>
         {blockedNoPrompt ? (
           <>
             <Text style={styles.permBody}>
-              Camera permission was denied or blocked. You need to allow it in system settings before check-in can
-              work.
+              Camera permission was denied or blocked. You need to allow it in{" "}
+              {isWeb ? "your browser settings for this site" : "system settings"} before check-in can work.
             </Text>
-            <Text style={styles.permBody}>
-              Open Settings → Study2Gather → enable Camera, then return here.
-            </Text>
-            <PrimaryButton title="Open app settings" onPress={() => void Linking.openSettings()} />
+            {isWeb ? (
+              <Text style={styles.permBody}>
+                In Chrome: click the lock or “site information” icon in the address bar → Site settings → Camera →
+                Allow, then reload this page. Safari: Safari → Settings for This Website → Camera.
+              </Text>
+            ) : (
+              <Text style={styles.permBody}>
+                Open Settings → Study2Gather → enable Camera, then return here.
+              </Text>
+            )}
+            {isWeb ? (
+              <PrimaryButton title="Try again" onPress={() => void requestPermission()} />
+            ) : (
+              <PrimaryButton title="Open app settings" onPress={() => void Linking.openSettings()} />
+            )}
           </>
         ) : (
           <>
@@ -190,7 +193,7 @@ export function CheckInScreen() {
 
   /** Stop the camera while showing result overlays or after a scan is in progress (until reset). */
   const cameraActive =
-    isFocused &&
+    screenFocused &&
     !failure &&
     !verified &&
     !(paused && lastData != null);
@@ -200,7 +203,13 @@ export function CheckInScreen() {
       {/* Unmount when tab loses focus or when we’re done scanning — releases camera hardware. */}
       {cameraActive ? (
         <CameraView
-          key={Platform.OS === "android" ? `cam-${androidCameraKey}` : "cam-native"}
+          key={
+            Platform.OS === "android"
+              ? `cam-${androidCameraKey}`
+              : Platform.OS === "web"
+                ? "cam-web"
+                : "cam-native"
+          }
           style={StyleSheet.absoluteFill}
           facing="back"
           mode="picture"
@@ -382,19 +391,11 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: colors.textPrimary
   },
-  webBody: {
-    fontSize: 15,
-    lineHeight: 22,
-    color: colors.textSecondary,
-    marginBottom: space.lg
-  },
-  webCard: {
-    marginBottom: space.lg
-  },
-  webHint: {
-    fontSize: 14,
-    lineHeight: 20,
-    color: colors.textPrimary
+  webSecureHint: {
+    marginTop: 6,
+    fontSize: 12,
+    lineHeight: 16,
+    color: "rgba(255,255,255,0.75)"
   },
   previewName: {
     fontWeight: "700"
