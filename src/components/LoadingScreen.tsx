@@ -1,4 +1,7 @@
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { LogoMark } from "@/components/study2gather/LogoMark";
+import { StudyBackground } from "@/components/study2gather/StudyBackground";
+import { sg } from "@/theme/study2gatherUi";
 
 interface LoadingScreenProps {
   message?: string;
@@ -6,10 +9,13 @@ interface LoadingScreenProps {
 
 export function LoadingScreen({ message = "Loading…" }: LoadingScreenProps) {
   return (
-    <View style={styles.container}>
-      <ActivityIndicator size="large" color="#2563EB" />
-      <Text style={styles.text}>{message}</Text>
-    </View>
+    <StudyBackground>
+      <View style={styles.container}>
+        <LogoMark size={72} />
+        <ActivityIndicator size="large" color={sg.cyan} style={styles.spinner} />
+        <Text style={styles.text}>{message}</Text>
+      </View>
+    </StudyBackground>
   );
 }
 
@@ -18,8 +24,8 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#F9FAFB",
     padding: 24
   },
-  text: { marginTop: 12, fontSize: 16, color: "#4B5563" }
+  spinner: { marginTop: 24 },
+  text: { marginTop: 16, fontSize: 16, color: sg.textMuted, fontWeight: "600" }
 });

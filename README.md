@@ -229,4 +229,4 @@ Monthly **UTC** window. Uses **only** completed `study_sessions` (`ended_at` in 
 9. Profile (account and preferences)
 
 
-Check
+Check 

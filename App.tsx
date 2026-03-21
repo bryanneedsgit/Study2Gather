@@ -16,7 +16,7 @@ export default function App() {
     return (
       <SafeAreaProvider>
         <NavigationContainer theme={theme.navigationTheme}>
-          <StatusBar style="dark" />
+          <StatusBar style="light" />
           <ConfigureBackendScreen />
         </NavigationContainer>
       </SafeAreaProvider>
@@ -29,7 +29,7 @@ export default function App() {
         <LockInSessionProvider>
           <SafeAreaProvider>
             <NavigationContainer theme={theme.navigationTheme}>
-              <StatusBar style="dark" />
+              <StatusBar style="light" />
               <RootNavigator />
             </NavigationContainer>
           </SafeAreaProvider>

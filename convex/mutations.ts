@@ -1,5 +1,6 @@
 import { mutationGeneric } from "convex/server";
 import { v } from "convex/values";
+import { userPointsBalance } from "./userPoints";
 
 export const incrementTestCounter = mutationGeneric({
   args: {
@@ -27,7 +28,7 @@ export const incrementTestCounter = mutationGeneric({
       return { next: 1, userId: id };
     }
 
-    const next = (existing.points ?? 0) + 1;
+    const next = userPointsBalance(existing) + 1;
     await ctx.db.patch(existing._id, { points: next });
     return { next, userId: existing._id };
   }

@@ -3,6 +3,7 @@ import { NavigatorScreenParams } from "@react-navigation/native";
 export type MainTabParamList = {
   Discover: undefined;
   "Lock-In": undefined;
+  "Check-In": undefined;
   Forum: undefined;
   "Study Spots": undefined;
   Rewards: undefined;
