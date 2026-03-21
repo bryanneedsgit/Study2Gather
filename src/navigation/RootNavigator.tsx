@@ -11,13 +11,13 @@ const OnboardingStack = createNativeStackNavigator();
 const MainStack = createNativeStackNavigator();
 
 export function RootNavigator() {
-  const { userId, user, loading } = useSession();
+  const { user, loading } = useSession();
 
   if (loading) {
     return <LoadingScreen message="Restoring session…" />;
   }
 
-  if (!userId) {
+  if (!user) {
     return (
       <AuthStack.Navigator screenOptions={{ headerShown: false }}>
         <AuthStack.Screen name="Auth" component={AuthScreen} />

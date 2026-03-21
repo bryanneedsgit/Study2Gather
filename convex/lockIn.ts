@@ -229,7 +229,7 @@ export const completeSession = mutationGeneric({
       const u = await ctx.db.get(p.user_id);
       if (!u) continue;
       await ctx.db.patch(p.user_id, {
-        points_total: u.points_total + points,
+        points: (u.points ?? 0) + points,
         ...(hitSessionCap ? { cooldown_until: cooldownUntil } : {})
       });
     }

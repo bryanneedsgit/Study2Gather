@@ -1,4 +1,5 @@
 import { defineSchema, defineTable } from "convex/server";
+import { authTables } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 
 /** Tier / gamification level for leaderboard UX */
@@ -41,28 +42,56 @@ const couponPurchaseStatus = v.union(
   v.literal("refunded")
 );
 
+const lockInSessionStatus = v.union(
+  v.literal("active"),
+  v.literal("completed"),
+  v.literal("cancelled")
+);
+const rewardRedemptionStatus = v.union(v.literal("completed"));
+
 export default defineSchema({
+  ...authTables,
+  /**
+   * Convex Auth `users` extended with Study2Gather fields.
+   * Defaults for app fields are applied in `auth.ts` `afterUserCreatedOrUpdated`.
+   */
   users: defineTable({
-    /** Normalized lowercase email — unique identity for demo / email-first auth (upgrade to Convex Auth later). */
-    email: v.string(),
     name: v.optional(v.string()),
+    image: v.optional(v.string()),
+    email: v.optional(v.string()),
+    emailVerificationTime: v.optional(v.number()),
+    phone: v.optional(v.string()),
+    phoneVerificationTime: v.optional(v.number()),
+    isAnonymous: v.optional(v.boolean()),
     school: v.optional(v.string()),
     course: v.optional(v.string()),
     age: v.optional(v.number()),
-    /** Set true after onboarding mutation succeeds. */
-    onboarding_completed: v.boolean(),
-    points_total: v.number(),
-    tier_status: tierStatus,
-    created_at: v.number(),
-    /** Minutes east of UTC (e.g. 480 = UTC+8). Used for local night window (no points 00:00–06:00). */
+    onboarding_completed: v.optional(v.boolean()),
+    points: v.optional(v.number()),
+    tier_status: v.optional(tierStatus),
+    created_at: v.optional(v.number()),
     timezone_offset_minutes: v.optional(v.number()),
-    /** When set and `Date.now() < cooldown_until`, user cannot start a new lock-in session. */
     cooldown_until: v.optional(v.number())
   })
-    .index("by_email", ["email"])
+    .index("email", ["email"])
     .index("by_school", ["school"])
     .index("by_school_and_course", ["school", "course"])
-    .index("by_points", ["points_total"]),
+    .index("by_points", ["points"]),
+
+  /**
+   * Solo “locked in” focus sessions (one user). Group lock-in still uses `study_sessions`.
+   */
+  lock_in_sessions: defineTable({
+    user_id: v.id("users"),
+    started_at: v.number(),
+    ended_at: v.optional(v.number()),
+    status: lockInSessionStatus,
+    duration_minutes: v.number(),
+    points_awarded: v.number(),
+    timezone_offset_minutes: v.number()
+  })
+    .index("by_user", ["user_id"])
+    .index("by_user_status", ["user_id", "status"]),
 
   study_groups: defineTable({
     name: v.optional(v.string()),
@@ -91,7 +120,9 @@ export default defineSchema({
     .index("by_group", ["group_id"])
     .index("by_status", ["status"])
     .index("by_group_started", ["group_id", "started_at"])
-    .index("by_group_status", ["group_id", "status"]),
+    .index("by_group_status", ["group_id", "status"])
+    /** Range queries for monthly leaderboard (completed sessions with ended_at). */
+    .index("by_ended_at", ["ended_at"]),
 
   session_participants: defineTable({
     session_id: v.id("study_sessions"),
@@ -185,5 +216,41 @@ export default defineSchema({
     .index("by_user", ["user_id"])
     .index("by_cafe", ["cafe_id"])
     .index("by_reservation", ["reservation_id"])
-    .index("by_status", ["status"])
+    .index("by_status", ["status"]),
+
+  /** Redeemable rewards (catalog). */
+  reward_catalog: defineTable({
+    title: v.string(),
+    description: v.optional(v.string()),
+    cost_points: v.number(),
+    active: v.boolean(),
+    created_at: v.number(),
+    sort_order: v.optional(v.number())
+  }).index("by_active", ["active"]),
+
+  /** Successful reward redemptions (audit). */
+  reward_redemptions: defineTable({
+    user_id: v.id("users"),
+    reward_id: v.id("reward_catalog"),
+    points_spent: v.number(),
+    status: rewardRedemptionStatus,
+    created_at: v.number()
+  })
+    .index("by_user", ["user_id"])
+    .index("by_reward", ["reward_id"])
+    .index("by_user_created", ["user_id", "created_at"]),
+
+  /**
+   * Append-only ledger for point changes made through `rewards:addPoints` / `rewards:deductPoints` / `rewards:redeemReward`.
+   * Lock-in and cafe flows may still update `users.points_total` directly until migrated to call these mutations.
+   */
+  points_ledger: defineTable({
+    user_id: v.id("users"),
+    delta: v.number(),
+    reason: v.optional(v.string()),
+    balance_after: v.number(),
+    created_at: v.number()
+  })
+    .index("by_user", ["user_id"])
+    .index("by_user_created", ["user_id", "created_at"])
 });
