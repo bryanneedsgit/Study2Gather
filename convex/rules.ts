@@ -1,9 +1,10 @@
 /** Lock-in & rewards rule constants (single source of truth for mutations). */
 
-export const POINTS_PER_60_MIN = 10;
+/** Points earned per minute that counts as “eligible” (outside night window, within session cap). */
+export const POINTS_PER_ELIGIBLE_MINUTE = 1;
+
 export const MAX_SESSION_MINUTES = 240;
 export const COOLDOWN_AFTER_CAP_MS = 2 * 60 * 60 * 1000;
-export const INTERVAL_MS = 60 * 60 * 1000;
 /** Local hours [0, 6) earn no points */
 export const NIGHT_START_HOUR = 0;
 export const NIGHT_END_HOUR = 6;
@@ -42,10 +43,7 @@ export function eligibleMinutesExcludingNightWindow(
   return eligible;
 }
 
-export function fullIntervalsFromMinutes(eligibleMinutes: number): number {
-  return Math.floor(eligibleMinutes / 60);
-}
-
-export function pointsForIntervals(intervals: number): number {
-  return intervals * POINTS_PER_60_MIN;
+/** Points from eligible minutes (1:1 by default). */
+export function pointsFromEligibleMinutes(eligibleMinutes: number): number {
+  return eligibleMinutes * POINTS_PER_ELIGIBLE_MINUTE;
 }

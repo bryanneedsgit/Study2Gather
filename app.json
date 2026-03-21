@@ -18,7 +18,13 @@
     "android": {},
     "web": {},
     "plugins": [
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Study2Gather uses your location to verify you're at the study venue before starting lock-in."
+        }
+      ]
     ]
   }
 }

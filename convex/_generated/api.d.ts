@@ -10,12 +10,12 @@
 
 import type * as auth from "../auth.js";
 import type * as cafe from "../cafe.js";
-
 import type * as crudMutations from "../crudMutations.js";
 import type * as crudQueries from "../crudQueries.js";
+import type * as geoUtils from "../geoUtils.js";
 import type * as http from "../http.js";
 import type * as leaderboard from "../leaderboard.js";
-
+import type * as locationCheckIn from "../locationCheckIn.js";
 import type * as lockIn from "../lockIn.js";
 import type * as lockInSolo from "../lockInSolo.js";
 import type * as mutations from "../mutations.js";
@@ -23,9 +23,9 @@ import type * as profile from "../profile.js";
 import type * as queries from "../queries.js";
 import type * as rewards from "../rewards.js";
 import type * as rules from "../rules.js";
-import type * as validators from "../validators.js";
 import type * as schoolOptions from "../schoolOptions.js";
 import type * as studySessions from "../studySessions.js";
+import type * as validators from "../validators.js";
 
 import type {
   ApiFromModules,
@@ -38,8 +38,10 @@ declare const fullApi: ApiFromModules<{
   cafe: typeof cafe;
   crudMutations: typeof crudMutations;
   crudQueries: typeof crudQueries;
+  geoUtils: typeof geoUtils;
   http: typeof http;
   leaderboard: typeof leaderboard;
+  locationCheckIn: typeof locationCheckIn;
   lockIn: typeof lockIn;
   lockInSolo: typeof lockInSolo;
   mutations: typeof mutations;
@@ -47,9 +49,9 @@ declare const fullApi: ApiFromModules<{
   queries: typeof queries;
   rewards: typeof rewards;
   rules: typeof rules;
-  validators: typeof validators;
   schoolOptions: typeof schoolOptions;
   studySessions: typeof studySessions;
+  validators: typeof validators;
 }>;
 
 /**

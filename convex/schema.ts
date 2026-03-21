@@ -47,6 +47,14 @@ const lockInSessionStatus = v.union(
   v.literal("completed"),
   v.literal("cancelled")
 );
+
+/** QR + GPS check-in that gates solo lock-in until consumed or TTL. */
+const locationCheckInStatus = v.union(
+  v.literal("active"),
+  v.literal("consumed"),
+  v.literal("expired")
+);
+
 const rewardRedemptionStatus = v.union(v.literal("completed"));
 
 export default defineSchema({
@@ -92,6 +100,20 @@ export default defineSchema({
   })
     .index("by_user", ["user_id"])
     .index("by_user_status", ["user_id", "status"]),
+
+  /**
+   * User completed QR scan + server location validation at a study spot or cafe.
+   * Required before `startSoloLockIn`; consumed when lock-in starts (or expires by TTL).
+   */
+  lock_in_location_check_ins: defineTable({
+    user_id: v.id("users"),
+    study_spot_id: v.optional(v.id("study_spots")),
+    cafe_id: v.optional(v.id("cafe_locations")),
+    verified_at: v.number(),
+    expires_at: v.number(),
+    status: locationCheckInStatus
+  })
+    .index("by_user", ["user_id"]),
 
   study_groups: defineTable({
     name: v.optional(v.string()),
@@ -242,7 +264,7 @@ export default defineSchema({
 
   /**
    * Append-only ledger for point changes made through `rewards:addPoints` / `rewards:deductPoints` / `rewards:redeemReward`.
-   * Lock-in and cafe flows may still update `users.points_total` directly until migrated to call these mutations.
+   * Lock-in and cafe flows may still update `users.points` directly until migrated to call these mutations.
    */
   points_ledger: defineTable({
     user_id: v.id("users"),

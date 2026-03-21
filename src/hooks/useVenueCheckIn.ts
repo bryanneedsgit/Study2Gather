@@ -1,0 +1,106 @@
+import { useCallback, useState } from "react";
+import * as Location from "expo-location";
+import { useMutation } from "convex/react";
+import { api } from "@/lib/convexApi";
+
+export type VenueCheckInErrorCode =
+  | "location_permission_denied"
+  | "location_unavailable"
+  | "not_authenticated"
+  | "invalid_coordinates"
+  | "invalid_qr"
+  | "spot_not_found"
+  | "cafe_not_found"
+  | "location_too_far"
+  | "unknown";
+
+export function mapVenueCheckInError(message: string): { code: VenueCheckInErrorCode; userMessage: string } {
+  const m = message.toLowerCase();
+  if (m.includes("location_permission_denied") || m.includes("permission")) {
+    return {
+      code: "location_permission_denied",
+      userMessage: "Location permission is required to verify you're at the venue."
+    };
+  }
+  if (m.includes("location_unavailable")) {
+    return {
+      code: "location_unavailable",
+      userMessage: "Could not read your GPS position. Try again outdoors or in Settings enable Location."
+    };
+  }
+  if (m.includes("not_authenticated")) {
+    return { code: "not_authenticated", userMessage: "Sign in again to check in." };
+  }
+  if (m.includes("location_too_far")) {
+    return {
+      code: "location_too_far",
+      userMessage: "You don't appear to be close enough to this venue. Move closer and try again."
+    };
+  }
+  if (m.includes("spot_not_found") || m.includes("cafe_not_found")) {
+    return { code: "spot_not_found", userMessage: "This QR code isn't linked to a valid venue in our system." };
+  }
+  if (m.includes("invalid_coordinates")) {
+    return { code: "invalid_coordinates", userMessage: "Invalid GPS reading. Try again." };
+  }
+  if (m.includes("invalid_qr_empty") || m.includes("invalid_qr")) {
+    return { code: "invalid_qr", userMessage: "Enter or scan a valid venue QR payload." };
+  }
+  if (
+    m.includes("empty_qr") ||
+    m.includes("unknown_prefix") ||
+    m.includes("invalid_format") ||
+    m.includes("invalid_json") ||
+    m.includes("json_parse")
+  ) {
+    return { code: "invalid_qr", userMessage: "That QR code isn't recognized. Scan the venue Study2Gather code." };
+  }
+  return { code: "unknown", userMessage: message };
+}
+
+/**
+ * Requests foreground GPS, then calls Convex `completeLocationCheckIn` with `raw` QR payload.
+ * Use this after the scanner returns the raw string (or paste for testing).
+ */
+export function useVenueCheckIn() {
+  const complete = useMutation(api.locationCheckIn.completeLocationCheckIn);
+  const [isCheckingIn, setIsCheckingIn] = useState(false);
+
+  const runCheckIn = useCallback(
+    async (rawQr: string) => {
+      const trimmed = rawQr.trim();
+      if (!trimmed) {
+        throw new Error("invalid_qr_empty");
+      }
+
+      setIsCheckingIn(true);
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== Location.PermissionStatus.GRANTED) {
+          throw new Error("location_permission_denied");
+        }
+
+        const pos = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced
+        });
+
+        const { latitude, longitude } = pos.coords;
+        if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+          throw new Error("location_unavailable");
+        }
+
+        await complete({
+          raw: trimmed,
+          latitude,
+          longitude,
+          nowMs: Date.now()
+        });
+      } finally {
+        setIsCheckingIn(false);
+      }
+    },
+    [complete]
+  );
+
+  return { runCheckIn, isCheckingIn };
+}
