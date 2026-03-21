@@ -206,6 +206,34 @@ export default defineSchema({
     reduce_margin: v.boolean()
   }).index("by_name", ["name"]),
 
+  /** Partner café menu lines (shown in-app only after check-in + reservation match). */
+  cafe_menu_items: defineTable({
+    cafe_id: v.id("cafe_locations"),
+    name: v.string(),
+    description: v.optional(v.string()),
+    /** Legacy single price; used when original/s2g not set. */
+    price_cents: v.optional(v.number()),
+    /** List price at the café counter. */
+    cafe_original_price_cents: v.optional(v.number()),
+    /** Study2Gather partner rate before coupon. */
+    s2g_special_price_cents: v.optional(v.number()),
+    /** Cents off when the user applies an eligible coupon at checkout. */
+    coupon_discount_cents: v.optional(v.number()),
+    category: v.optional(v.string()),
+    sort_order: v.number()
+  }).index("by_cafe", ["cafe_id"]),
+
+  /** Optional audit rows for menu-tab / check-in flows (legacy). */
+  menu_tab_test_runs: defineTable({
+    user_id: v.id("users"),
+    cafe_id: v.id("cafe_locations"),
+    reservation_id: v.optional(v.id("reservations")),
+    check_in_id: v.id("lock_in_location_check_ins"),
+    created_at: v.number()
+  })
+    .index("by_user", ["user_id"])
+    .index("by_cafe", ["cafe_id"]),
+
   cafe_seat_holds: defineTable({
     cafe_id: v.id("cafe_locations"),
     user_id: v.id("users"),

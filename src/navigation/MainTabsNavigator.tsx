@@ -1,5 +1,5 @@
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { tabBarGlyph } from "@/components/TabBarGlyph";
+import { tabBarIcon } from "@/components/TabBarIcon";
 import { MainTabParamList } from "@/navigation/types";
 import { DiscoverScreen } from "@/screens/discover/DiscoverScreen";
 import { LockInScreen } from "@/screens/lockin/LockInScreen";
@@ -8,6 +8,7 @@ import { StudySpotsScreen } from "@/screens/study-spots/StudySpotsScreen";
 import { RewardsScreen } from "@/screens/rewards/RewardsScreen";
 import { LeaderboardScreen } from "@/screens/leaderboard/LeaderboardScreen";
 import { CheckInScreen } from "@/screens/check-in/CheckInScreen";
+import { CafeMenuScreen } from "@/screens/menu/CafeMenuScreen";
 import { ProfileScreen } from "@/screens/profile/ProfileScreen";
 import { colors } from "@/theme/colors";
 
@@ -36,35 +37,52 @@ export function MainTabsNavigator() {
       <Tab.Screen
         name="Discover"
         component={DiscoverScreen}
-        options={{ tabBarIcon: tabBarGlyph("D") }}
+        options={{ tabBarIcon: tabBarIcon("compass-outline") }}
       />
       <Tab.Screen
         name="Lock-In"
         component={LockInScreen}
-        options={{ tabBarIcon: tabBarGlyph("I") }}
+        options={{ tabBarIcon: tabBarIcon("lock-closed-outline") }}
       />
       <Tab.Screen
         name="Check-In"
         component={CheckInScreen}
         options={{
           tabBarLabel: "Check in",
-          tabBarIcon: tabBarGlyph("C"),
+          tabBarIcon: tabBarIcon("qr-code-outline"),
           headerShown: false
         }}
       />
-      <Tab.Screen name="Forum" component={ForumScreen} options={{ tabBarIcon: tabBarGlyph("F") }} />
+      <Tab.Screen
+        name="Menu"
+        component={CafeMenuScreen}
+        options={{ tabBarIcon: tabBarIcon("restaurant-outline") }}
+      />
+      <Tab.Screen
+        name="Forum"
+        component={ForumScreen}
+        options={{ tabBarIcon: tabBarIcon("chatbubbles-outline") }}
+      />
       <Tab.Screen
         name="Study Spots"
         component={StudySpotsScreen}
-        options={{ tabBarIcon: tabBarGlyph("M") }}
+        options={{ tabBarIcon: tabBarIcon("map-outline") }}
       />
-      <Tab.Screen name="Rewards" component={RewardsScreen} options={{ tabBarIcon: tabBarGlyph("R") }} />
+      <Tab.Screen
+        name="Rewards"
+        component={RewardsScreen}
+        options={{ tabBarIcon: tabBarIcon("gift-outline") }}
+      />
       <Tab.Screen
         name="Leaderboard"
         component={LeaderboardScreen}
-        options={{ tabBarIcon: tabBarGlyph("T") }}
+        options={{ tabBarIcon: tabBarIcon("trophy-outline") }}
       />
-      <Tab.Screen name="Profile" component={ProfileScreen} options={{ tabBarIcon: tabBarGlyph("P") }} />
+      <Tab.Screen
+        name="Profile"
+        component={ProfileScreen}
+        options={{ tabBarIcon: tabBarIcon("person-circle-outline") }}
+      />
     </Tab.Navigator>
   );
 }
