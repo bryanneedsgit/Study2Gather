@@ -9,7 +9,7 @@ export const incrementTestCounter = mutationGeneric({
     const email = `smoke-${args.key.replace(/[^a-z0-9-]/gi, "")}@study2gather.test`;
     const existing = await ctx.db
       .query("users")
-      .withIndex("by_email", (q) => q.eq("email", email))
+      .withIndex("email", (q) => q.eq("email", email))
       .first();
 
     if (!existing) {
@@ -20,15 +20,15 @@ export const incrementTestCounter = mutationGeneric({
         course: args.key,
         age: 18,
         onboarding_completed: true,
-        points_total: 1,
+        points: 1,
         tier_status: "bronze",
         created_at: Date.now()
       });
       return { next: 1, userId: id };
     }
 
-    const next = existing.points_total + 1;
-    await ctx.db.patch(existing._id, { points_total: next });
+    const next = (existing.points ?? 0) + 1;
+    await ctx.db.patch(existing._id, { points: next });
     return { next, userId: existing._id };
   }
 });

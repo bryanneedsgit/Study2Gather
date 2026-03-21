@@ -20,9 +20,12 @@ import { formatUnknownError } from "@/utils/errors";
 import { validateEmail } from "@/utils/validation";
 
 export function AuthScreen() {
-  const { signInWithEmail } = useSession();
+  const { signInWithPassword } = useSession();
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [flow, setFlow] = useState<"signIn" | "signUp">("signIn");
   const [emailError, setEmailError] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -30,15 +33,31 @@ export function AuthScreen() {
     setFormError(null);
     const err = validateEmail(email);
     setEmailError(err);
-    if (err) return;
+    if (!password || password.length < 8) {
+      setPasswordError("Use at least 8 characters.");
+    } else {
+      setPasswordError(null);
+    }
+    if (err || password.length < 8) return;
 
     setSubmitting(true);
     try {
-      await signInWithEmail(email.trim());
+      await signInWithPassword({
+        email: email.trim(),
+        password,
+        flow
+      });
     } catch (e) {
       const raw = formatUnknownError(e);
-      if (raw.toLowerCase().includes("invalid_email")) {
-        setFormError("Invalid email. Please check and try again.");
+      if (
+        raw.toLowerCase().includes("invalid") ||
+        raw.toLowerCase().includes("credentials")
+      ) {
+        setFormError(
+          flow === "signIn"
+            ? "Wrong email or password. Try again or create an account."
+            : "Could not create account. Try a different email or sign in instead."
+        );
       } else if (
         raw.toLowerCase().includes("failed to fetch") ||
         raw.toLowerCase().includes("network")
@@ -70,15 +89,15 @@ export function AuthScreen() {
           <Text style={styles.brand}>Study2Gather</Text>
           <Text style={styles.headline}>Sign in or create account</Text>
           <Text style={styles.lead}>
-            New here? Enter your email and we’ll create your account. Same email next time signs you
-            back in — no password in this demo.
+            Convex Auth with email + password. New accounts use the same form — switch to &quot;Create
+            account&quot; for first-time sign up (min. 8 character password).
           </Text>
 
           <View style={styles.card}>
             <FormField
               label="Email address"
               required
-              hint="Use any address you can remember; it’s only used to find your account in this demo."
+              hint="Used to sign in on this and other devices."
               value={email}
               onChangeText={(t) => {
                 setEmail(t);
@@ -93,6 +112,24 @@ export function AuthScreen() {
               editable={!submitting}
             />
 
+            <FormField
+              label="Password"
+              required
+              hint="At least 8 characters."
+              value={password}
+              onChangeText={(t) => {
+                setPassword(t);
+                setPasswordError(null);
+                setFormError(null);
+              }}
+              placeholder="••••••••"
+              secureTextEntry
+              autoCapitalize="none"
+              autoComplete={flow === "signUp" ? "password-new" : "password"}
+              error={passwordError}
+              editable={!submitting}
+            />
+
             <FormErrorBanner message={formError} />
 
             <TouchableOpacity
@@ -104,8 +141,23 @@ export function AuthScreen() {
               {submitting ? (
                 <ActivityIndicator color="#FFFFFF" />
               ) : (
-                <Text style={styles.primaryText}>Continue with email</Text>
+                <Text style={styles.primaryText}>
+                  {flow === "signIn" ? "Sign in" : "Create account"}
+                </Text>
               )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.secondary}
+              onPress={() => {
+                setFlow((f) => (f === "signIn" ? "signUp" : "signIn"));
+                setFormError(null);
+              }}
+              disabled={submitting}
+            >
+              <Text style={styles.secondaryText}>
+                {flow === "signIn" ? "Need an account? Create one" : "Have an account? Sign in"}
+              </Text>
             </TouchableOpacity>
 
             {__DEV__ && env.convexUrl ? (
@@ -171,6 +223,16 @@ const styles = StyleSheet.create({
   },
   primaryDisabled: { opacity: 0.65 },
   primaryText: { color: "#FFFFFF", fontSize: 17, fontWeight: "700" },
+  secondary: {
+    marginTop: 16,
+    alignItems: "center",
+    paddingVertical: 8
+  },
+  secondaryText: {
+    color: "#2563EB",
+    fontSize: 15,
+    fontWeight: "600"
+  },
   devHint: {
     fontSize: 11,
     color: "#9CA3AF",
