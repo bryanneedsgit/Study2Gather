@@ -81,9 +81,13 @@ This project uses **Expo + React Native + TypeScript** because it is the most re
 │   ├── auth.ts
 │   ├── schema.ts
 │   ├── queries.ts
+│   ├── schoolOptions.ts
 │   ├── mutations.ts
 │   ├── lockIn.ts
+│   ├── studySessions.ts
 │   ├── cafe.ts
+│   ├── rewards.ts
+│   ├── leaderboard.ts
 │   └── rules.ts
 └── supabase
     ├── schema.sql
@@ -144,6 +148,10 @@ Expo exposes variables prefixed with `EXPO_PUBLIC_` to the app runtime.
 | `completeOnboarding` | mutation | Sets school, course, age, `onboarding_completed: true` |
 | `getCurrentUser` | query | Load profile by `userId` |
 
+### School presets (`convex/schoolOptions.ts`)
+
+DE/EU university strings for onboarding alignment. Optional query `getSchoolPresets` returns the same list the app shows in `src/constants/onboardingOptions.ts` — **keep those two in sync** when editing.
+
 ## Convex backend API (core logic)
 
 All business rules run in Convex mutations/queries (not in the UI).
@@ -158,15 +166,50 @@ All business rules run in Convex mutations/queries (not in the UI).
 | `updateSessionParticipantFlags` | mutation | Client reports foreground / proximity for a participant |
 | `completeSession` | mutation | Validates all participants, applies 60m intervals + 4h cap + night window, awards points, sets 2h cooldown if session hit 4h cap |
 
+### Study session lifecycle (`convex/studySessions.ts`)
+
+Container-only session state (no lock-in validation). Use this as the base layer; compose with `lockIn` later (e.g. validate → `startSession` / `endSession`).
+
+| Function | Type | Purpose |
+|----------|------|---------|
+| `startSession` | mutation | Creates a session for `groupId`; optional `initialStatus` `pending` \| `active` (default `active`). Rejects if the group already has a `pending` or `active` session. |
+| `getSession` | query | Load one session by id |
+| `getActiveSessionByGroup` | query | Active session for a group, if any |
+| `endSession` | mutation | Close `pending` or `active` → `completed` or `failed`; sets `ended_at`, `duration_minutes`, `points_awarded`, `ended_reason` |
+| `activateSession` | mutation | `pending` → `active`; refreshes `started_at` for duration |
+
 ### Cafe (`convex/cafe.ts`)
 
 | Function | Type | Purpose |
 |----------|------|---------|
-| `checkCafeAvailability` | query | `available_seats`, `can_transact`, `reduce_margin` (footfall vs threshold) |
+| `checkCafeAvailability` | query | `available_seats`, `is_full`, `can_transact`, `footfall_metric`, `reduce_margin` (stored on cafe), `margin_reduced_by_footfall` (same heuristic as coupon `margin_reduced`) |
 | `createSeatHold` | mutation | 5-minute hold; rejects when `occupied + active holds >= total` (race-safe in one mutation) |
 | `finalizeCouponPurchase` | mutation | Converts hold, increments cafe occupancy, creates reservation + coupon, optional tutor points |
 | `releaseExpiredSeatHolds` | mutation | Marks expired active holds |
 | `verifyCafePresence` | mutation | Marks reservation verified / completed |
+
+### Rewards (`convex/rewards.ts`)
+
+Uses **`users.points_total`** as the balance (same field as lock-in / cafe). Append-only **`points_ledger`** records changes made through these mutations; older flows may still patch `points_total` directly until migrated.
+
+| Function | Type | Purpose |
+|----------|------|---------|
+| `addPoints` | mutation | Add positive integer points; optional `reason`; writes ledger row |
+| `deductPoints` | mutation | Subtract points; throws `insufficient_points` if balance would go negative |
+| `getUserPoints` | query | `{ pointsTotal }` or `null` |
+| `getAvailableRewards` | query | Active rows from `reward_catalog` (insert catalog docs via dashboard or script) |
+| `redeemReward` | mutation | Validates reward active + balance; deducts; creates `reward_redemptions` row; returns `{ ok, ... }` |
+| `seedGermanStudentRewardCatalog` | mutation | Idempotent: inserts 13 DE/EU‑themed catalog items (Mensa, Döner, DB/Flix, Lieferando, dm, Kino, etc.) if the catalog is empty — run once from the Convex dashboard |
+
+### Leaderboard (`convex/leaderboard.ts`)
+
+Monthly **UTC** window. Uses **only** completed `study_sessions` (`ended_at` in window, `status === completed`) via `session_participants`. **Does not** rank by `users.points_total`. Metrics: `monthlyPoints` (sum `points_awarded`), `monthlyMinutes` (sum `duration_minutes`), `completedSessions` (count). Rank: points → minutes → session count. See `methodology` on each query.
+
+| Function | Type | Purpose |
+|----------|------|---------|
+| `getMonthlyLeaderboard` | query | Ranked `entries` (default limit 100, max 500), optional `yearMonth`, `nowMs` |
+| `getUserRank` | query | `rank`, `stats`, `totalRankedUsers` for one `userId` |
+| `getLeaderboardPreview` | query | Top `limit` (default 10, max 50) |
 
 ## Notes
 
