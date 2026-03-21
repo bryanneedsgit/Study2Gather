@@ -244,7 +244,7 @@ export default defineSchema({
 
   /**
    * Append-only ledger for point changes made through `rewards:addPoints` / `rewards:deductPoints` / `rewards:redeemReward`.
-   * Lock-in and cafe flows update `users.points` (legacy docs may still carry `points_total`).
+   * Lock-in and cafe flows update `users.points` directly; legacy docs may still carry `points_total` (see `userPointsBalance`).
    */
   points_ledger: defineTable({
     user_id: v.id("users"),
