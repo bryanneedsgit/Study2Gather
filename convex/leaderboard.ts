@@ -50,8 +50,8 @@ type UserStats = {
 function displayNameFromUser(u: { name?: string; email?: string }): string {
   if (u.name && u.name.trim().length > 0) return u.name.trim();
   const email = u.email?.trim();
-  if (email) return email.split("@")[0] ?? "student";
-  return "student";
+  if (email) return email.split("@")[0] ?? "Student";
+  return "Student";
 }
 
 function compareRows(a: UserStats, b: UserStats): number {

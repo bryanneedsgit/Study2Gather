@@ -26,6 +26,7 @@ import type * as rules from "../rules.js";
 import type * as schoolOptions from "../schoolOptions.js";
 import type * as sessionUser from "../sessionUser.js";
 import type * as studySessions from "../studySessions.js";
+import type * as studySpots from "../studySpots.js";
 import type * as userPoints from "../userPoints.js";
 import type * as validators from "../validators.js";
 
@@ -54,6 +55,7 @@ declare const fullApi: ApiFromModules<{
   schoolOptions: typeof schoolOptions;
   sessionUser: typeof sessionUser;
   studySessions: typeof studySessions;
+  studySpots: typeof studySpots;
   userPoints: typeof userPoints;
   validators: typeof validators;
 }>;
