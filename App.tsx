@@ -6,17 +6,31 @@ import { ConvexProvider } from "convex/react";
 import { RootNavigator } from "@/navigation/RootNavigator";
 import { theme } from "@/theme";
 import { convex } from "@/lib/convex";
+import { SessionProvider } from "@/context/SessionContext";
+import { ConfigureBackendScreen } from "@/screens/ConfigureBackendScreen";
 
 export default function App() {
-  const app = (
-    <SafeAreaProvider>
-      <NavigationContainer theme={theme.navigationTheme}>
-        <StatusBar style="dark" />
-        <RootNavigator />
-      </NavigationContainer>
-    </SafeAreaProvider>
-  );
+  if (!convex) {
+    return (
+      <SafeAreaProvider>
+        <NavigationContainer theme={theme.navigationTheme}>
+          <StatusBar style="dark" />
+          <ConfigureBackendScreen />
+        </NavigationContainer>
+      </SafeAreaProvider>
+    );
+  }
 
-  if (!convex) return app;
-  return <ConvexProvider client={convex}>{app}</ConvexProvider>;
+  return (
+    <ConvexProvider client={convex}>
+      <SessionProvider>
+        <SafeAreaProvider>
+          <NavigationContainer theme={theme.navigationTheme}>
+            <StatusBar style="dark" />
+            <RootNavigator />
+          </NavigationContainer>
+        </SafeAreaProvider>
+      </SessionProvider>
+    </ConvexProvider>
+  );
 }

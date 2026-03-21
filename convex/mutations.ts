@@ -6,18 +6,20 @@ export const incrementTestCounter = mutationGeneric({
     key: v.string()
   },
   handler: async (ctx, args) => {
+    const email = `smoke-${args.key.replace(/[^a-z0-9-]/gi, "")}@study2gather.test`;
     const existing = await ctx.db
       .query("users")
-      .filter((q) =>
-        q.and(q.eq(q.field("school"), "smoke-test"), q.eq(q.field("course"), args.key))
-      )
+      .withIndex("by_email", (q) => q.eq("email", email))
       .first();
 
     if (!existing) {
+      const email = `smoke-${args.key.replace(/[^a-z0-9-]/gi, "")}@study2gather.test`;
       const id = await ctx.db.insert("users", {
+        email,
         school: "smoke-test",
         course: args.key,
-        age: 0,
+        age: 18,
+        onboarding_completed: true,
         points_total: 1,
         tier_status: "bronze",
         created_at: Date.now()
