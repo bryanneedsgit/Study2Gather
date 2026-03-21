@@ -175,7 +175,7 @@ Container-only session state (no lock-in validation). Use this as the base layer
 
 | Function | Type | Purpose |
 |----------|------|---------|
-| `checkCafeAvailability` | query | `available_seats`, `can_transact`, `reduce_margin` (footfall vs threshold) |
+| `checkCafeAvailability` | query | `available_seats`, `is_full`, `can_transact`, `footfall_metric`, `reduce_margin` (stored on cafe), `margin_reduced_by_footfall` (same heuristic as coupon `margin_reduced`) |
 | `createSeatHold` | mutation | 5-minute hold; rejects when `occupied + active holds >= total` (race-safe in one mutation) |
 | `finalizeCouponPurchase` | mutation | Converts hold, increments cafe occupancy, creates reservation + coupon, optional tutor points |
 | `releaseExpiredSeatHolds` | mutation | Marks expired active holds |
