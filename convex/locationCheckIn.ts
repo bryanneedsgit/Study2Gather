@@ -12,6 +12,7 @@ import { mutationGeneric, queryGeneric } from "convex/server";
 import { v } from "convex/values";
 import type { DataModel, Doc, Id } from "./_generated/dataModel";
 import { distanceMeters } from "./geoUtils";
+import { getValidReservation } from "./lockInReservations";
 
 /** Max distance from recorded lat/lng to accept GPS (meters). */
 export const CHECK_IN_RADIUS_METERS = 150;
@@ -293,20 +294,32 @@ export const completeLocationCheckIn = mutationGeneric({
     const cafeId: Id<"cafe_locations"> | undefined =
       resolved.kind === "cafe" ? resolved.cafeId : undefined;
 
+    const existingRows = await ctx.db
+      .query("lock_in_location_check_ins")
+      .withIndex("by_user", (q) => q.eq("user_id", userId))
+      .filter((q) => q.eq(q.field("status"), "active"))
+      .collect();
+    const alreadyCheckedInAt = existingRows.find(
+      (r) =>
+        (studySpotId && r.study_spot_id === studySpotId) ||
+        (cafeId && r.cafe_id === cafeId)
+    );
+    if (alreadyCheckedInAt) {
+      throw new Error(`already_checked_in|${resolved.name}`);
+    }
+
     const d = distanceMeters({ lat, lng }, { lat: args.latitude, lng: args.longitude });
     if (d > CHECK_IN_RADIUS_METERS) {
       throw new Error("location_too_far");
     }
 
+    const locationId = (studySpotId ?? cafeId) as string;
+    const reservation = await getValidReservation(ctx, userId, locationId, args.nowMs);
+    if (!reservation) throw new Error("no_reservation");
+
     const expiresAt = args.nowMs + CHECK_IN_MAX_TTL_MS;
 
-    const previous = await ctx.db
-      .query("lock_in_location_check_ins")
-      .withIndex("by_user", (q) => q.eq("user_id", userId))
-      .filter((q) => q.eq(q.field("status"), "active"))
-      .collect();
-
-    for (const row of previous) {
+    for (const row of existingRows) {
       await ctx.db.patch(row._id, { status: "expired" });
     }
 
@@ -314,6 +327,8 @@ export const completeLocationCheckIn = mutationGeneric({
       user_id: userId,
       study_spot_id: studySpotId,
       cafe_id: cafeId,
+      reservation_id: reservation._id,
+      reservation_end_time: reservation.end_time,
       verified_at: args.nowMs,
       expires_at: expiresAt,
       status: "active"

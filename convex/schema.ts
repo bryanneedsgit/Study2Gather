@@ -91,8 +91,25 @@ export default defineSchema({
   /**
    * Solo “locked in” focus sessions (one user). Group lock-in still uses `study_sessions`.
    */
+  lock_in_reservations: defineTable({
+    user_id: v.id("users"),
+    location_id: v.string(),
+    start_time: v.number(),
+    end_time: v.number(),
+    duration: v.number(),
+    status: v.optional(
+      v.union(v.literal("active"), v.literal("used"), v.literal("expired"))
+    )
+  })
+    .index("by_user", ["user_id"])
+    .index("by_user_location", ["user_id", "location_id"])
+    .index("by_location_start", ["location_id", "start_time"]),
+
   lock_in_sessions: defineTable({
     user_id: v.id("users"),
+    location_id: v.optional(v.string()),
+    /** Reservation window end (ms) — used for countdown when lock-in is reservation-gated. */
+    reservation_end_time: v.optional(v.number()),
     started_at: v.number(),
     ended_at: v.optional(v.number()),
     status: lockInSessionStatus,
@@ -111,6 +128,8 @@ export default defineSchema({
     user_id: v.id("users"),
     study_spot_id: v.optional(v.id("study_spots")),
     cafe_id: v.optional(v.id("cafe_locations")),
+    reservation_id: v.optional(v.id("lock_in_reservations")),
+    reservation_end_time: v.optional(v.number()),
     verified_at: v.number(),
     expires_at: v.number(),
     status: locationCheckInStatus

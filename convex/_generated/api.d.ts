@@ -19,6 +19,7 @@ import type * as http from "../http.js";
 import type * as leaderboard from "../leaderboard.js";
 import type * as locationCheckIn from "../locationCheckIn.js";
 import type * as lockIn from "../lockIn.js";
+import type * as lockInReservations from "../lockInReservations.js";
 import type * as lockInSolo from "../lockInSolo.js";
 import type * as mutations from "../mutations.js";
 import type * as profile from "../profile.js";
@@ -51,6 +52,7 @@ declare const fullApi: ApiFromModules<{
   leaderboard: typeof leaderboard;
   locationCheckIn: typeof locationCheckIn;
   lockIn: typeof lockIn;
+  lockInReservations: typeof lockInReservations;
   lockInSolo: typeof lockInSolo;
   mutations: typeof mutations;
   profile: typeof profile;

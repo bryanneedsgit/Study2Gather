@@ -31,11 +31,14 @@ type LockInSessionContextValue = {
   activeSession: {
     _id: Id<"lock_in_sessions">;
     started_at: number;
+    reservation_end_time?: number;
   } | null;
   /** True while a session is active (shows fullscreen modal) */
   isLockedIn: boolean;
   /** Elapsed ms since start (for display) */
   elapsedMs: number;
+  /** When reservation-gated: remaining ms until end; null = show elapsed */
+  reservationRemainingMs: number | null;
   /** Last known app foreground state while locked */
   appState: AppStateStatus;
   startLockIn: () => Promise<void>;
@@ -71,6 +74,13 @@ export function LockInSessionProvider({ children }: { children: ReactNode }) {
     return Date.now() - active.started_at;
   }, [active, tick]);
 
+  /** When reservation-gated: remaining ms until end; otherwise null (show elapsed). */
+  const reservationRemainingMs = useMemo(() => {
+    if (!active?.reservation_end_time) return null;
+    const remaining = active.reservation_end_time - Date.now();
+    return remaining > 0 ? remaining : 0;
+  }, [active?.reservation_end_time, tick]);
+
   const isLockedIn = Boolean(active && userId);
 
   const startLockIn = useCallback(async () => {
@@ -97,11 +107,12 @@ export function LockInSessionProvider({ children }: { children: ReactNode }) {
       activeSession: active ?? null,
       isLockedIn,
       elapsedMs: elapsedMsDisplay,
+      reservationRemainingMs,
       appState,
       startLockIn,
       endLockIn
     }),
-    [active, isLockedIn, elapsedMsDisplay, appState, startLockIn, endLockIn]
+    [active, isLockedIn, elapsedMsDisplay, reservationRemainingMs, appState, startLockIn, endLockIn]
   );
 
   return (
@@ -110,7 +121,14 @@ export function LockInSessionProvider({ children }: { children: ReactNode }) {
       <Modal visible={isLockedIn} animationType="fade" presentationStyle="fullScreen">
         <View style={[styles.fullScreen, { width, height }]}>
           <Text style={styles.lockedTitle}>Locked in</Text>
-          <Text style={styles.timer}>{formatDuration(elapsedMsDisplay)}</Text>
+          <Text style={styles.timerSubtext}>
+            {reservationRemainingMs !== null ? "Time remaining" : "Elapsed"}
+          </Text>
+          <Text style={styles.timer}>
+            {reservationRemainingMs !== null
+              ? formatCountdown(reservationRemainingMs)
+              : formatDuration(elapsedMsDisplay)}
+          </Text>
           <Text style={styles.hint}>
             Focus time is counting. For OS-level lock, use Guided Access (iOS) or screen pinning (Android) —
             this app runs a timer and awards points when you end the session.
@@ -129,6 +147,15 @@ export function LockInSessionProvider({ children }: { children: ReactNode }) {
 
 function formatDuration(ms: number): string {
   const totalSec = Math.floor(ms / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  if (h > 0) return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+function formatCountdown(msRemaining: number): string {
+  const totalSec = Math.max(0, Math.floor(msRemaining / 1000));
   const h = Math.floor(totalSec / 3600);
   const m = Math.floor((totalSec % 3600) / 60);
   const s = totalSec % 60;
@@ -155,6 +182,11 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: "700",
     marginBottom: 16
+  },
+  timerSubtext: {
+    color: "#94a3b8",
+    fontSize: 14,
+    marginBottom: 4
   },
   timer: {
     color: "#38bdf8",
