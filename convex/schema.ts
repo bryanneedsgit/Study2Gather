@@ -43,10 +43,14 @@ const couponPurchaseStatus = v.union(
 
 export default defineSchema({
   users: defineTable({
+    /** Normalized lowercase email — unique identity for demo / email-first auth (upgrade to Convex Auth later). */
+    email: v.string(),
     name: v.optional(v.string()),
-    school: v.string(),
-    course: v.string(),
-    age: v.number(),
+    school: v.optional(v.string()),
+    course: v.optional(v.string()),
+    age: v.optional(v.number()),
+    /** Set true after onboarding mutation succeeds. */
+    onboarding_completed: v.boolean(),
     points_total: v.number(),
     tier_status: tierStatus,
     created_at: v.number(),
@@ -55,6 +59,7 @@ export default defineSchema({
     /** When set and `Date.now() < cooldown_until`, user cannot start a new lock-in session. */
     cooldown_until: v.optional(v.number())
   })
+    .index("by_email", ["email"])
     .index("by_school", ["school"])
     .index("by_school_and_course", ["school", "course"])
     .index("by_points", ["points_total"]),

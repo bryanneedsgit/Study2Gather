@@ -6,11 +6,10 @@ export const getBackendHealth = queryGeneric({
     key: v.string()
   },
   handler: async (ctx, args) => {
+    const email = `smoke-${args.key.replace(/[^a-z0-9-]/gi, "")}@study2gather.test`;
     const smoke = await ctx.db
       .query("users")
-      .filter((q) =>
-        q.and(q.eq(q.field("school"), "smoke-test"), q.eq(q.field("course"), args.key))
-      )
+      .withIndex("by_email", (q) => q.eq("email", email))
       .first();
 
     const allUsers = await ctx.db.query("users").collect();

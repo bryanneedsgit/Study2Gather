@@ -29,13 +29,20 @@ This project uses **Expo + React Native + TypeScript** because it is the most re
 ├── .env.example
 ├── src
 │   ├── components
+│   │   ├── FormField.tsx
+│   │   ├── LoadingScreen.tsx
 │   │   └── PlaceholderScreen.tsx
+│   ├── context
+│   │   └── SessionContext.tsx
+│   ├── constants
+│   │   └── onboardingOptions.ts
 │   ├── config
 │   │   └── env.ts
 │   ├── hooks
 │   │   └── useAppTheme.ts
 │   ├── lib
-│   │   └── convex.ts
+│   │   ├── convex.ts
+│   │   └── sessionStorage.ts
 │   ├── navigation
 │   │   ├── MainTabsNavigator.tsx
 │   │   ├── RootNavigator.tsx
@@ -57,20 +64,27 @@ This project uses **Expo + React Native + TypeScript** because it is the most re
 │   │   │   └── RewardsScreen.tsx
 │   │   ├── leaderboard
 │   │   │   └── LeaderboardScreen.tsx
-│   │   └── profile
-│   │       └── ProfileScreen.tsx
+│   │   ├── profile
+│   │   │   └── ProfileScreen.tsx
+│   │   └── ConfigureBackendScreen.tsx
 │   ├── services
-│   │   ├── authService.ts
 │   │   └── index.ts
+│   ├── utils
+│   │   ├── profile.ts
+│   │   └── validation.ts
 │   ├── theme
 │   │   ├── colors.ts
 │   │   └── index.ts
 │   └── types
 │       └── env.d.ts
 ├── convex
+│   ├── auth.ts
 │   ├── schema.ts
 │   ├── queries.ts
-│   └── mutations.ts
+│   ├── mutations.ts
+│   ├── lockIn.ts
+│   ├── cafe.ts
+│   └── rules.ts
 └── supabase
     ├── schema.sql
     └── migrations
@@ -95,6 +109,24 @@ Expo exposes variables prefixed with `EXPO_PUBLIC_` to the app runtime.
    - `npm run start`
 5. Open in iOS simulator, Android emulator, or Expo Go
 
+## Authentication (hackathon-stable)
+
+**Chosen approach: email-only “find or create” in Convex (no password, no email provider).**
+
+- **There is no separate “Sign up” screen** — **Sign in or create account** is one flow: new email creates a user; existing email signs you in.
+- **Why:** Full email OTP / magic link adds provider setup and failure modes you do not want in a 2-day hackathon.
+- **How:** `auth:signInWithEmail` normalizes email, finds or inserts a `users` row, returns `userId`. The app stores `userId` in **AsyncStorage** and loads `auth:getCurrentUser` on launch.
+- **Upgrade path:** Swap the client + Convex layer for **Convex Auth**, **Clerk**, or **Supabase Auth** later; keep `users` as the profile table and replace `signInWithEmail` with token-verified user creation.
+
+**Routing:** `App.tsx` → `ConvexProvider` → `SessionProvider` → `RootNavigator`: unauthenticated users only see **Auth**; signed-in users without `onboarding_completed` see **Onboarding**; then **Main** (tabs, starting at Discover).
+
+### If login fails (“Continue with email” errors)
+
+1. **Run Convex** in a second terminal: `npm run convex:dev` (deploys/syncs functions; required the first time and while developing).
+2. **`.env`** must define `EXPO_PUBLIC_CONVEX_URL` to your deployment URL — then **restart Expo** (env is read at bundle time).
+3. After schema changes, ensure Convex has finished deploying so `auth:signInWithEmail` and `users` schema match.
+4. Check the **red error text** on the auth screen — it now shows the real message from Convex/network when possible.
+
 ## Convex setup notes
 
 - Convex functions live in `convex/` (see **Convex backend API** below).
@@ -103,6 +135,14 @@ Expo exposes variables prefixed with `EXPO_PUBLIC_` to the app runtime.
 - Basic smoke test is in `src/screens/profile/ProfileScreen.tsx`
   - query: `queries:getBackendHealth`
   - mutation: `mutations:incrementTestCounter`
+
+### Auth API (`convex/auth.ts`)
+
+| Function | Type | Purpose |
+|----------|------|---------|
+| `signInWithEmail` | mutation | Find-or-create user by normalized email |
+| `completeOnboarding` | mutation | Sets school, course, age, `onboarding_completed: true` |
+| `getCurrentUser` | query | Load profile by `userId` |
 
 ## Convex backend API (core logic)
 

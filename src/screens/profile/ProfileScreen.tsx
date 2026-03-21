@@ -1,32 +1,62 @@
-import { Button, Text, View } from "react-native";
+import { Button, StyleSheet, Text, View } from "react-native";
 import { useMutation, useQuery } from "convex/react";
 import type { FunctionReference } from "convex/server";
 import { PlaceholderScreen } from "@/components/PlaceholderScreen";
-import { env } from "@/config/env";
+import { useSession } from "@/context/SessionContext";
 
 const getBackendHealth = "queries:getBackendHealth" as unknown as FunctionReference<"query">;
 const incrementTestCounter = "mutations:incrementTestCounter" as unknown as FunctionReference<"mutation">;
 
 export function ProfileScreen() {
-  const hasConvexEnv = Boolean(env.convexUrl);
-  if (!hasConvexEnv) {
-    return (
-      <PlaceholderScreen title="Profile" subtitle="View account and study preferences.">
-        <Text>Set EXPO_PUBLIC_CONVEX_URL to enable Convex backend smoke test.</Text>
-      </PlaceholderScreen>
-    );
-  }
+  const { user, signOut } = useSession();
+  const smokeKey = user?.email?.replace(/[^a-z0-9]/gi, "-") ?? "profile-smoke-test";
 
-  const backendStatus = useQuery(getBackendHealth, { key: "profile-smoke-test" });
+  const backendStatus = useQuery(getBackendHealth, { key: smokeKey });
   const increment = useMutation(incrementTestCounter);
 
   return (
-    <PlaceholderScreen title="Profile" subtitle="View account and study preferences.">
-      <Text>Convex smoke test (query + mutation):</Text>
-      <Text>{backendStatus ? `${backendStatus.message}. Count: ${backendStatus.count}` : "Loading backend status..."}</Text>
+    <PlaceholderScreen title="Profile" subtitle="Account and preferences.">
+      {user ? (
+        <View style={styles.account}>
+          <Text style={styles.label}>Email</Text>
+          <Text style={styles.value}>{user.email}</Text>
+          {user.school ? (
+            <>
+              <Text style={styles.label}>School</Text>
+              <Text style={styles.value}>{user.school}</Text>
+            </>
+          ) : null}
+          {user.course ? (
+            <>
+              <Text style={styles.label}>Course</Text>
+              <Text style={styles.value}>{user.course}</Text>
+            </>
+          ) : null}
+          {user.age != null ? (
+            <>
+              <Text style={styles.label}>Age</Text>
+              <Text style={styles.value}>{String(user.age)}</Text>
+            </>
+          ) : null}
+          <Text style={styles.label}>Points</Text>
+          <Text style={styles.value}>{user.points_total}</Text>
+        </View>
+      ) : null}
+
+      <Button title="Sign out" onPress={() => void signOut()} />
+
+      <Text style={styles.section}>Developer: Convex smoke test</Text>
+      <Text>{backendStatus ? `${backendStatus.message}. Count: ${backendStatus.count}` : "Loading…"}</Text>
       <View style={{ marginTop: 10 }}>
-        <Button title="Increment Convex Counter" onPress={() => increment({ key: "profile-smoke-test" })} />
+        <Button title="Increment test counter" onPress={() => increment({ key: smokeKey })} />
       </View>
     </PlaceholderScreen>
   );
 }
+
+const styles = StyleSheet.create({
+  account: { marginBottom: 20 },
+  label: { fontSize: 12, color: "#6B7280", marginTop: 8 },
+  value: { fontSize: 16, color: "#111827", fontWeight: "600" },
+  section: { marginTop: 24, fontWeight: "600", color: "#374151" }
+});
