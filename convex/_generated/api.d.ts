@@ -10,7 +10,10 @@
 
 import type * as auth from "../auth.js";
 import type * as cafe from "../cafe.js";
+import type * as cafeHours from "../cafeHours.js";
 import type * as cafeLocations from "../cafeLocations.js";
+import type * as cafeOsmApply from "../cafeOsmApply.js";
+import type * as cafeOsmSync from "../cafeOsmSync.js";
 import type * as crudMutations from "../crudMutations.js";
 import type * as crudQueries from "../crudQueries.js";
 import type * as forum from "../forum.js";
@@ -21,6 +24,7 @@ import type * as locationCheckIn from "../locationCheckIn.js";
 import type * as lockIn from "../lockIn.js";
 import type * as lockInSolo from "../lockInSolo.js";
 import type * as mutations from "../mutations.js";
+import type * as osmOpeningHours from "../osmOpeningHours.js";
 import type * as profile from "../profile.js";
 import type * as queries from "../queries.js";
 import type * as rewards from "../rewards.js";
@@ -42,7 +46,10 @@ import type {
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   cafe: typeof cafe;
+  cafeHours: typeof cafeHours;
   cafeLocations: typeof cafeLocations;
+  cafeOsmApply: typeof cafeOsmApply;
+  cafeOsmSync: typeof cafeOsmSync;
   crudMutations: typeof crudMutations;
   crudQueries: typeof crudQueries;
   forum: typeof forum;
@@ -53,6 +60,7 @@ declare const fullApi: ApiFromModules<{
   lockIn: typeof lockIn;
   lockInSolo: typeof lockInSolo;
   mutations: typeof mutations;
+  osmOpeningHours: typeof osmOpeningHours;
   profile: typeof profile;
   queries: typeof queries;
   rewards: typeof rewards;

@@ -203,7 +203,15 @@ export default defineSchema({
     total_stipulated_tables: v.number(),
     current_occupied_tables: v.number(),
     footfall_metric: v.number(),
-    reduce_margin: v.boolean()
+    reduce_margin: v.boolean(),
+    /** Minutes east of UTC for store wall time (e.g. 480 = Singapore). */
+    timezone_offset_minutes: v.optional(v.number()),
+    /** Store opens at this local minute-of-day [0, 1440). */
+    opens_local_minute: v.optional(v.number()),
+    /** Store closes at this local minute-of-day; must be > opens (same calendar day). */
+    closes_local_minute: v.optional(v.number()),
+    /** Last OSM `opening_hours` string applied by `cafeOsmSync:syncCafeHoursFromOsm` (audit / debug). */
+    opening_hours_osm_raw: v.optional(v.string())
   }).index("by_name", ["name"]),
 
   cafe_seat_holds: defineTable({
@@ -225,6 +233,12 @@ export default defineSchema({
     coupon_purchase_id: v.optional(v.id("coupon_purchases")),
     start_time: v.number(),
     end_time: v.number(),
+    /** Length of stay in hours (informational; pricing uses ms range + UTC day caps). */
+    duration_hours: v.optional(v.number()),
+    /** Total price in euros for this reservation window (time-based flow). */
+    cost: v.optional(v.number()),
+    /** Client time when price was first quoted/booked; used to extend at same advance-tier rules. */
+    pricing_booking_now_ms: v.optional(v.number()),
     status: reservationStatus,
     is_verified: v.boolean()
   })
