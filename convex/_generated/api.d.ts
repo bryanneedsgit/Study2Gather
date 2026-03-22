@@ -28,6 +28,7 @@ import type * as lockInReservations from "../lockInReservations.js";
 import type * as lockInSolo from "../lockInSolo.js";
 import type * as mutations from "../mutations.js";
 import type * as osmOpeningHours from "../osmOpeningHours.js";
+import type * as payments from "../payments.js";
 import type * as profile from "../profile.js";
 import type * as queries from "../queries.js";
 import type * as rewards from "../rewards.js";
@@ -67,6 +68,7 @@ declare const fullApi: ApiFromModules<{
   lockInSolo: typeof lockInSolo;
   mutations: typeof mutations;
   osmOpeningHours: typeof osmOpeningHours;
+  payments: typeof payments;
   profile: typeof profile;
   queries: typeof queries;
   rewards: typeof rewards;
