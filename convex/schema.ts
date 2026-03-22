@@ -95,6 +95,8 @@ export default defineSchema({
     user_id: v.id("users"),
     /** Venue id from check-in: `study_spots` or `cafe_locations` id as string (for analytics / n8n). */
     location_id: v.optional(v.string()),
+    /** Reservation window end (ms) — used for countdown when lock-in is reservation-gated. */
+    reservation_end_time: v.optional(v.number()),
     started_at: v.number(),
     ended_at: v.optional(v.number()),
     status: lockInSessionStatus,
@@ -113,6 +115,10 @@ export default defineSchema({
     user_id: v.id("users"),
     study_spot_id: v.optional(v.id("study_spots")),
     cafe_id: v.optional(v.id("cafe_locations")),
+    /** References lock_in_reservations or reservations; use string to accept legacy IDs. */
+    reservation_id: v.optional(v.string()),
+    /** Reservation window end (ms) — used for countdown when lock-in is reservation-gated. */
+    reservation_end_time: v.optional(v.number()),
     verified_at: v.number(),
     expires_at: v.number(),
     status: locationCheckInStatus
@@ -289,5 +295,22 @@ export default defineSchema({
     created_at: v.number()
   })
     .index("by_user", ["user_id"])
-    .index("by_user_created", ["user_id", "created_at"])
+    .index("by_user_created", ["user_id", "created_at"]),
+
+  /**
+   * n8n collaboration recommendations (via HTTP POST).
+   * userMatches = array of { user_id, matches }; totalUsers = count (number).
+   */
+  collaboration_recommendations: defineTable({
+    userMatches: v.array(
+      v.object({
+        user_id: v.string(),
+        matches: v.array(v.string())
+      })
+    ),
+    totalUsers: v.optional(v.number()),
+    timestamps: v.union(v.number(), v.array(v.number())),
+    created_at: v.number()
+  })
+    .index("by_created_at", ["created_at"])
 });

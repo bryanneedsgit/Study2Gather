@@ -10,6 +10,7 @@
 
 import type * as auth from "../auth.js";
 import type * as cafe from "../cafe.js";
+import type * as collaborationRecommendations from "../collaborationRecommendations.js";
 import type * as crudMutations from "../crudMutations.js";
 import type * as crudQueries from "../crudQueries.js";
 import type * as forum from "../forum.js";
@@ -42,6 +43,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   cafe: typeof cafe;
+  collaborationRecommendations: typeof collaborationRecommendations;
   crudMutations: typeof crudMutations;
   crudQueries: typeof crudQueries;
   forum: typeof forum;
