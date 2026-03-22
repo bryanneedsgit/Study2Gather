@@ -2,10 +2,57 @@
  * Dev/test data seeding. Run from the Convex dashboard or CLI, e.g.:
  *   npx convex run seed:seedCafeLocations
  *   npx convex run seed:seedN8nFeedData
+ *
+ * One-time migration:
+ *   npx convex run seed:migrateNameToUsername
  */
 import { mutationGeneric } from "convex/server";
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
+
+/**
+ * One-time migration: copy `name` → `username` for users that have name but no username.
+ * Run before removing `name` from schema: npx convex run seed:migrateNameToUsername
+ */
+export const migrateNameToUsername = mutationGeneric({
+  args: {},
+  handler: async (ctx) => {
+    const users = await ctx.db.query("users").collect();
+    let updated = 0;
+    for (const u of users) {
+      const uu = u as { name?: string; username?: string };
+      const name = uu.name?.trim();
+      const hasUsername =
+        typeof uu.username === "string" && uu.username.trim().length > 0;
+      if (name && !hasUsername) {
+        const username = name.toLowerCase().replace(/\s+/g, "_");
+        await ctx.db.patch(u._id, { username });
+        updated++;
+      }
+    }
+    return { updated, total: users.length };
+  }
+});
+
+/**
+ * One-time migration: remove `name` field from all users.
+ * After running: npx convex run seed:removeNameFromUsers
+ * remove `name` from the users table in convex/schema.ts and redeploy.
+ */
+export const removeNameFromUsers = mutationGeneric({
+  args: {},
+  handler: async (ctx) => {
+    const users = await ctx.db.query("users").collect();
+    let removed = 0;
+    for (const u of users) {
+      if ("name" in u && (u as { name?: unknown }).name !== undefined) {
+        await ctx.db.patch(u._id, { name: undefined });
+        removed++;
+      }
+    }
+    return { removed, total: users.length };
+  }
+});
 
 /** Partner cafés for map / booking demos (~15 rows, SG-area coords). */
 const TEST_CAFE_LOCATIONS = [
@@ -474,7 +521,7 @@ export const seedN8nFeedData = mutationGeneric({
         } else {
           const id = await ctx.db.insert("users", {
             email,
-            name: `N8N Seed User ${i + 1}`,
+            username: `n8n_seed_user_${i + 1}`,
             school: N8N_SEED_SCHOOLS[i % N8N_SEED_SCHOOLS.length],
             course: N8N_SEED_COURSES[i % N8N_SEED_COURSES.length],
             age: 18 + (i % 10),

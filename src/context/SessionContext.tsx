@@ -12,7 +12,7 @@ import { api } from "@/lib/convexApi";
 export type SessionUser = {
   _id: string;
   email?: string;
-  name?: string;
+  username?: string;
   school?: string;
   course?: string;
   age?: number;
@@ -29,6 +29,7 @@ type SessionContextValue = {
     email: string;
     password: string;
     flow: "signIn" | "signUp";
+    username?: string;
   }) => Promise<void>;
   completeOnboarding: (input: { school: string; course: string; age: number }) => Promise<void>;
   signOut: () => Promise<void>;
@@ -42,11 +43,19 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const { signIn, signOut: authSignOut } = useAuthActions();
 
   const signInWithPassword = useCallback(
-    async (input: { email: string; password: string; flow: "signIn" | "signUp" }) => {
+    async (input: {
+      email: string;
+      password: string;
+      flow: "signIn" | "signUp";
+      username?: string;
+    }) => {
       await signIn("password", {
         email: input.email.trim().toLowerCase(),
         password: input.password,
-        flow: input.flow
+        flow: input.flow,
+        ...(input.flow === "signUp" && input.username
+          ? { username: input.username.trim() }
+          : {})
       });
     },
     [signIn]

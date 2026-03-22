@@ -46,8 +46,8 @@ type UserStats = {
   completedSessions: number;
 };
 
-function displayNameFromUser(u: { name?: string; email?: string }): string {
-  if (u.name && u.name.trim().length > 0) return u.name.trim();
+function displayNameFromUser(u: { username?: string; email?: string }): string {
+  if (u.username && u.username.trim().length > 0) return u.username.trim();
   const email = u.email?.trim();
   if (email) return email.split("@")[0] ?? "Student";
   return "Student";

@@ -13,7 +13,19 @@ export const getCurrentUser = queryGeneric({
 });
 
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
-  providers: [Password],
+  providers: [
+    Password({
+      profile: (params) => {
+        const email = typeof params.email === "string" ? params.email : "";
+        const result: { email: string; username?: string } = { email };
+        if (params.flow === "signUp" && typeof params.username === "string" && params.username.trim()) {
+          const username = params.username.trim().toLowerCase().replace(/\s+/g, "_");
+          result.username = username;
+        }
+        return result;
+      }
+    })
+  ],
   callbacks: {
     async afterUserCreatedOrUpdated(ctx, { userId }) {
       const user = await ctx.db.get(userId);

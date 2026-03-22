@@ -67,7 +67,9 @@ export default defineSchema({
    * Defaults for app fields are applied in `auth.ts` `afterUserCreatedOrUpdated`.
    */
   users: defineTable({
+    /** @deprecated Run seed:removeNameFromUsers to strip, then remove this. */
     name: v.optional(v.string()),
+    username: v.optional(v.string()),
     image: v.optional(v.string()),
     email: v.optional(v.string()),
     emailVerificationTime: v.optional(v.number()),
@@ -87,6 +89,7 @@ export default defineSchema({
     cooldown_until: v.optional(v.number())
   })
     .index("email", ["email"])
+    .index("username", ["username"])
     .index("by_school", ["school"])
     .index("by_school_and_course", ["school", "course"])
     .index("by_points", ["points"]),

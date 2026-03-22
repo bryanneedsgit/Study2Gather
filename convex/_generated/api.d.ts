@@ -25,8 +25,8 @@ import type * as http from "../http.js";
 import type * as leaderboard from "../leaderboard.js";
 import type * as locationCheckIn from "../locationCheckIn.js";
 import type * as lockIn from "../lockIn.js";
-import type * as lockInSessions from "../lockInSessions.js";
 import type * as lockInReservations from "../lockInReservations.js";
+import type * as lockInSessions from "../lockInSessions.js";
 import type * as lockInSolo from "../lockInSolo.js";
 import type * as mutations from "../mutations.js";
 import type * as osmOpeningHours from "../osmOpeningHours.js";
@@ -52,13 +52,13 @@ import type {
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   cafe: typeof cafe;
-  collaborationRecommendations: typeof collaborationRecommendations;
   cafeHours: typeof cafeHours;
   cafeLocations: typeof cafeLocations;
   cafeMenu: typeof cafeMenu;
   cafeMenuFullMenus: typeof cafeMenuFullMenus;
   cafeOsmApply: typeof cafeOsmApply;
   cafeOsmSync: typeof cafeOsmSync;
+  collaborationRecommendations: typeof collaborationRecommendations;
   crudMutations: typeof crudMutations;
   crudQueries: typeof crudQueries;
   forum: typeof forum;
@@ -67,8 +67,8 @@ declare const fullApi: ApiFromModules<{
   leaderboard: typeof leaderboard;
   locationCheckIn: typeof locationCheckIn;
   lockIn: typeof lockIn;
-  lockInSessions: typeof lockInSessions;
   lockInReservations: typeof lockInReservations;
+  lockInSessions: typeof lockInSessions;
   lockInSolo: typeof lockInSolo;
   mutations: typeof mutations;
   osmOpeningHours: typeof osmOpeningHours;
