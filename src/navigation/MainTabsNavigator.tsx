@@ -8,6 +8,7 @@ import { StudySpotsScreen } from "@/screens/study-spots/StudySpotsScreen";
 import { RewardsScreen } from "@/screens/rewards/RewardsScreen";
 import { LeaderboardScreen } from "@/screens/leaderboard/LeaderboardScreen";
 import { CheckInScreen } from "@/screens/check-in/CheckInScreen";
+import { CafeMenuScreen } from "@/screens/menu/CafeMenuScreen";
 import { ProfileScreen } from "@/screens/profile/ProfileScreen";
 import { colors } from "@/theme/colors";
 

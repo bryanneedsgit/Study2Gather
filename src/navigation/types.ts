@@ -13,6 +13,7 @@ export type MainTabParamList = {
   Discover: undefined;
   "Lock-In": undefined;
   "Check-In": undefined;
+  Menu: undefined;
   Forum: undefined;
   "Study Spots": undefined;
   Rewards: undefined;

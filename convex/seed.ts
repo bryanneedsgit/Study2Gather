@@ -373,3 +373,65 @@ export const seedCafeLocations = mutationGeneric({
     };
   }
 });
+
+/**
+ * Create a lock-in reservation for a random user.
+ * Run: npx convex run seed:seedLockInReservation
+ * @param forNow - If true (default), reservation is valid for the next 2 hours from now (for testing).
+ *                 If false, reservation is tomorrow 12:00 AM–2:00 AM UTC.
+ */
+export const seedLockInReservation = mutationGeneric({
+  args: {
+    forNow: v.optional(v.boolean())
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db.query("users").first();
+    if (!user) throw new Error("No users in database. Sign up first.");
+
+    const cafe = await ctx.db.query("cafe_locations").first();
+    const spot = await ctx.db.query("study_spots").first();
+    const location = cafe ?? spot;
+    if (!location) throw new Error("No cafe_locations or study_spots. Run seed:seedCafeLocations first.");
+
+    const now = Date.now();
+    let startTime: number;
+    let endTime: number;
+    if (args.forNow !== false) {
+      startTime = now;
+      endTime = now + 2 * 60 * 60 * 1000;
+    } else {
+      const d = new Date(now);
+      d.setUTCHours(0, 0, 0, 0);
+      d.setUTCDate(d.getUTCDate() + 1);
+      startTime = d.getTime();
+      endTime = startTime + 2 * 60 * 60 * 1000;
+    }
+    const duration = Math.floor((endTime - startTime) / 60000);
+
+    const id = await ctx.db.insert("lock_in_reservations", {
+      user_id: "m9786jr5ksd3qg824k6ddv9v1583ad85",
+      location_id: "jx71gwm369t5yd8123jhdx21w983bn6r",
+      start_time: startTime,
+      end_time: endTime,
+      duration,
+      status: "active"
+    });
+
+    const qrPayload = cafe
+      ? `s2g:cafe:${location._id}`
+      : `s2g:spot:${location._id}`;
+
+    return {
+      reservationId: id,
+      userId: user._id,
+      locationId: location._id,
+      locationName: "name" in location ? location.name : undefined,
+      startTime: new Date(startTime).toISOString(),
+      endTime: new Date(endTime).toISOString(),
+      durationMinutes: duration,
+      forNow: args.forNow !== false,
+      qrPayload,
+      hint: `Scan a QR with ${qrPayload} (or paste that into a QR generator) to check in at this venue.`
+    };
+  }
+});

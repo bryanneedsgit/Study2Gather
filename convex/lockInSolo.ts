@@ -10,8 +10,6 @@ import {
   MAX_SESSION_MINUTES,
   POINTS_PER_ELIGIBLE_SECOND,
   eligibleMsExcludingNightWindow,
-  isInNoPointsNightWindowLocalHour,
-  localHourFromUtcMs,
   pointsFromEligibleMs
 } from "./rules";
 import { userPointsBalance } from "./userPoints";
@@ -61,11 +59,6 @@ export const startSoloLockIn = mutationGeneric({
       throw new Error("cooldown_active");
     }
 
-    const hour = localHourFromUtcMs(args.nowMs, args.timezoneOffsetMinutes);
-    if (isInNoPointsNightWindowLocalHour(hour)) {
-      throw new Error("night_window_no_start");
-    }
-
     const checkInRows = await ctx.db
       .query("lock_in_location_check_ins")
       .withIndex("by_user", (q) => q.eq("user_id", userId))
@@ -91,16 +84,19 @@ export const startSoloLockIn = mutationGeneric({
     const existing = existingRows[0];
     if (existing) throw new Error("already_locked_in");
 
+    const venueId = validCheckIn.study_spot_id ?? validCheckIn.cafe_id;
     const sessionId = await ctx.db.insert("lock_in_sessions", {
       user_id: userId,
+      ...(venueId !== undefined ? { location_id: venueId as string } : {}),
+      ...(validCheckIn.reservation_end_time !== undefined
+        ? { reservation_end_time: validCheckIn.reservation_end_time }
+        : {}),
       started_at: args.nowMs,
       status: "active",
       duration_minutes: 0,
       points_awarded: 0,
       timezone_offset_minutes: args.timezoneOffsetMinutes
     });
-
-    await ctx.db.patch(validCheckIn._id, { status: "consumed" });
 
     return { sessionId };
   }
