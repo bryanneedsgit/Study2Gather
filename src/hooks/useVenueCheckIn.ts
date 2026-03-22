@@ -15,6 +15,7 @@ export type VenueCheckInErrorCode =
   | "invalid_id"
   | "location_too_far"
   | "no_reservation"
+  | "no_tables_available"
   | "already_checked_in"
   | "unknown";
 
@@ -42,10 +43,16 @@ export function mapVenueCheckInError(message: string): { code: VenueCheckInError
       userMessage: `You've already checked in at ${name}. You can lock in and out as needed from the Lock-In tab.`
     };
   }
+  if (m.includes("no_tables_available")) {
+    return {
+      code: "no_tables_available",
+      userMessage: "No tables available at this café right now. Try again later."
+    };
+  }
   if (m.includes("no_reservation")) {
     return {
       code: "no_reservation",
-      userMessage: "You don't have a reservation for this location and time. Make a reservation first."
+      userMessage: "You don't have a reservation. Pick a duration (up to 4 hours) to walk in, or make a reservation first."
     };
   }
   if (m.includes("location_too_far")) {
@@ -102,7 +109,7 @@ export function useVenueCheckIn() {
   const [isCheckingIn, setIsCheckingIn] = useState(false);
 
   const runCheckIn = useCallback(
-    async (rawQr: string) => {
+    async (rawQr: string, durationMinutes?: number) => {
       const trimmed = rawQr.trim();
       if (!trimmed) {
         throw new Error("invalid_qr_empty");
@@ -128,7 +135,8 @@ export function useVenueCheckIn() {
           raw: trimmed,
           latitude,
           longitude,
-          nowMs: Date.now()
+          nowMs: Date.now(),
+          ...(durationMinutes !== undefined ? { durationMinutes } : {})
         });
       } finally {
         setIsCheckingIn(false);

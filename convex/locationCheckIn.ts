@@ -13,12 +13,16 @@ import { v } from "convex/values";
 import type { DataModel, Doc, Id } from "./_generated/dataModel";
 import { distanceMeters } from "./geoUtils";
 import { getValidReservation } from "./lockInReservations";
+import { api } from "./_generated/api";
 
 /** Max distance from recorded lat/lng to accept GPS (meters). */
 export const CHECK_IN_RADIUS_METERS = 150;
 
 /** How long a check-in stays valid if unused (ms). */
 export const CHECK_IN_MAX_TTL_MS = 8 * 60 * 60 * 1000;
+
+/** Max walk-in duration (minutes). */
+export const WALK_IN_MAX_DURATION_MINUTES = 240;
 
 const QR_PREFIX = "s2g:";
 
@@ -269,7 +273,9 @@ export const completeLocationCheckIn = mutationGeneric({
     raw: v.string(),
     latitude: v.number(),
     longitude: v.number(),
-    nowMs: v.number()
+    nowMs: v.number(),
+    /** Walk-in only: duration 1–240 min when no reservation. Required for cafe walk-in. */
+    durationMinutes: v.optional(v.number())
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
@@ -315,7 +321,58 @@ export const completeLocationCheckIn = mutationGeneric({
 
     const locationId = (studySpotId ?? cafeId) as string;
     const reservation = await getValidReservation(ctx, userId, locationId, args.nowMs);
-    if (!reservation) throw new Error("no_reservation");
+
+    if (!reservation) {
+      if (resolved.kind === "study_spot") throw new Error("no_reservation");
+      if (resolved.kind !== "cafe" || !cafeId) throw new Error("no_reservation");
+      const dur = args.durationMinutes;
+      if (
+        dur === undefined ||
+        !Number.isInteger(dur) ||
+        dur < 1 ||
+        dur > WALK_IN_MAX_DURATION_MINUTES
+      ) {
+        throw new Error("no_reservation");
+      }
+      const availability = await ctx.runQuery(api.cafe.checkCafeAvailability, {
+        cafeId,
+        nowMs: args.nowMs
+      });
+      if (!availability?.can_transact) throw new Error("no_tables_available");
+
+      const durationMs = dur * 60 * 1000;
+      const expiresAt = args.nowMs + durationMs;
+
+      for (const row of existingRows) {
+        await ctx.db.patch(row._id, { status: "expired" });
+      }
+
+      const seatHoldId = await ctx.db.insert("cafe_seat_holds", {
+        cafe_id: cafeId,
+        user_id: userId,
+        expires_at: expiresAt,
+        status: "active"
+      });
+
+      const checkInId = await ctx.db.insert("lock_in_location_check_ins", {
+        user_id: userId,
+        cafe_id: cafeId,
+        reservation_end_time: expiresAt,
+        verified_at: args.nowMs,
+        expires_at: expiresAt,
+        status: "active"
+      });
+
+      return {
+        checkInId,
+        expiresAt,
+        distanceMeters: d,
+        radiusMeters: CHECK_IN_RADIUS_METERS,
+        walkIn: true,
+        durationMinutes: dur,
+        seatHoldId
+      };
+    }
 
     const expiresAt = args.nowMs + CHECK_IN_MAX_TTL_MS;
 

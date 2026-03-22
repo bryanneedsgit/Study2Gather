@@ -12,6 +12,8 @@ import type * as auth from "../auth.js";
 import type * as cafe from "../cafe.js";
 import type * as cafeHours from "../cafeHours.js";
 import type * as cafeLocations from "../cafeLocations.js";
+import type * as cafeMenu from "../cafeMenu.js";
+import type * as cafeMenuFullMenus from "../cafeMenuFullMenus.js";
 import type * as cafeOsmApply from "../cafeOsmApply.js";
 import type * as cafeOsmSync from "../cafeOsmSync.js";
 import type * as crudMutations from "../crudMutations.js";
@@ -49,6 +51,8 @@ declare const fullApi: ApiFromModules<{
   cafe: typeof cafe;
   cafeHours: typeof cafeHours;
   cafeLocations: typeof cafeLocations;
+  cafeMenu: typeof cafeMenu;
+  cafeMenuFullMenus: typeof cafeMenuFullMenus;
   cafeOsmApply: typeof cafeOsmApply;
   cafeOsmSync: typeof cafeOsmSync;
   crudMutations: typeof crudMutations;

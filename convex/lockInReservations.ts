@@ -1,12 +1,26 @@
 /**
  * Lock-in reservations: gate check-in and lock-in by venue + time window.
  */
+import { getAuthUserId } from "@convex-dev/auth/server";
 import type { GenericMutationCtx, GenericQueryCtx } from "convex/server";
 import { mutationGeneric, queryGeneric } from "convex/server";
 import { v } from "convex/values";
 import type { DataModel, Id } from "./_generated/dataModel";
 
 type DbCtx = GenericQueryCtx<DataModel> | GenericMutationCtx<DataModel>;
+
+/** Client-callable: returns valid reservation if current user has one for this location, else null. */
+export const getValidLockInReservation = queryGeneric({
+  args: {
+    locationId: v.string(),
+    nowMs: v.number()
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return null;
+    return getValidReservation(ctx, userId, args.locationId, args.nowMs);
+  }
+});
 
 /** Returns a valid reservation if user has one for this location and current time is within [start_time, end_time]. */
 export async function getValidReservation(
