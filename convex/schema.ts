@@ -121,7 +121,9 @@ export default defineSchema({
     timezone_offset_minutes: v.number()
   })
     .index("by_user", ["user_id"])
-    .index("by_user_status", ["user_id", "status"]),
+    .index("by_user_status", ["user_id", "status"])
+    /** Monthly leaderboard range queries (completed sessions with `ended_at`). */
+    .index("by_ended_at", ["ended_at"]),
 
   /**
    * User completed QR scan + server location validation at a study spot or cafe.
