@@ -9,6 +9,8 @@ import { convex } from "@/lib/convex";
 import { convexAuthStorage } from "@/lib/convexAuthStorage";
 import { SessionProvider } from "@/context/SessionContext";
 import { LockInSessionProvider } from "@/context/LockInSessionContext";
+import { ReservationVoucherProvider } from "@/context/ReservationVoucherContext";
+import { StripeOptionalProvider } from "@/components/StripeOptionalProvider";
 import { ConfigureBackendScreen } from "@/screens/ConfigureBackendScreen";
 
 export default function App() {
@@ -26,14 +28,18 @@ export default function App() {
   return (
     <ConvexAuthProvider client={convex} storage={convexAuthStorage}>
       <SessionProvider>
-        <LockInSessionProvider>
-          <SafeAreaProvider>
-            <NavigationContainer theme={theme.navigationTheme}>
-              <StatusBar style="light" />
-              <RootNavigator />
-            </NavigationContainer>
-          </SafeAreaProvider>
-        </LockInSessionProvider>
+        <ReservationVoucherProvider>
+          <LockInSessionProvider>
+            <StripeOptionalProvider>
+              <SafeAreaProvider>
+                <NavigationContainer theme={theme.navigationTheme}>
+                  <StatusBar style="light" />
+                  <RootNavigator />
+                </NavigationContainer>
+              </SafeAreaProvider>
+            </StripeOptionalProvider>
+          </LockInSessionProvider>
+        </ReservationVoucherProvider>
       </SessionProvider>
     </ConvexAuthProvider>
   );

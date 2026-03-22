@@ -341,6 +341,46 @@ export const createTimeBasedReservation = mutationGeneric({
 });
 
 /**
+ * After a €5 Stripe payment for on-the-spot check-in, attach a paid coupon row to the reservation.
+ */
+export const addSpotCheckInVoucherForReservation = mutationGeneric({
+  args: {
+    reservationId: v.id("reservations")
+  },
+  handler: async (ctx, args) => {
+    const res = await ctx.db.get(args.reservationId);
+    if (!res) throw new Error("reservation_not_found");
+    if (res.status !== "confirmed") throw new Error("reservation_not_confirmed");
+
+    const cafe = await ctx.db.get(res.cafe_id);
+    if (!cafe) throw new Error("cafe_not_found");
+
+    const marginReduced = computeReduceMarginFromFootfall(cafe.footfall_metric);
+
+    const existing = await ctx.db
+      .query("coupon_purchases")
+      .withIndex("by_reservation", (q) => q.eq("reservation_id", args.reservationId))
+      .collect();
+    const already = existing.some((c) => c.amount_paid === 5 && c.status === "paid");
+    if (already) {
+      return { ok: true as const, duplicate: true as const };
+    }
+
+    await ctx.db.insert("coupon_purchases", {
+      user_id: res.user_id,
+      cafe_id: res.cafe_id,
+      reservation_id: args.reservationId,
+      amount_paid: 5,
+      margin_reduced: marginReduced,
+      status: "paid",
+      purchased_at: Date.now()
+    });
+
+    return { ok: true as const, duplicate: false as const };
+  }
+});
+
+/**
  * Lengthen a time-based reservation if seats are still available for the wider window.
  * Total price is recomputed as if the **full** [start, newEnd) had been booked at the original
  * `pricing_booking_now_ms` (same advance-tier rules + duration marginals).

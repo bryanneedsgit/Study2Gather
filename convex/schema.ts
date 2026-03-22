@@ -57,6 +57,9 @@ const locationCheckInStatus = v.union(
 
 const rewardRedemptionStatus = v.union(v.literal("completed"));
 
+/** Catalog row kind — `cafe_5eur_voucher` issues a scannable QR perk after redeem. */
+const rewardCatalogKind = v.union(v.literal("standard"), v.literal("cafe_5eur_voucher"));
+
 export default defineSchema({
   ...authTables,
   /**
@@ -274,7 +277,12 @@ export default defineSchema({
     cost_points: v.number(),
     active: v.boolean(),
     created_at: v.number(),
-    sort_order: v.optional(v.number())
+    sort_order: v.optional(v.number()),
+    /**
+     * `cafe_5eur_voucher` — redeeming spends points and issues a scannable €5 café coupon (QR).
+     * Omitted / `standard` — catalog perk without in-app QR voucher.
+     */
+    reward_kind: v.optional(rewardCatalogKind)
   }).index("by_active", ["active"]),
 
   /** Successful reward redemptions (audit). */
@@ -283,7 +291,9 @@ export default defineSchema({
     reward_id: v.id("reward_catalog"),
     points_spent: v.number(),
     status: rewardRedemptionStatus,
-    created_at: v.number()
+    created_at: v.number(),
+    /** Opaque token embedded in QR for staff validation (set for `cafe_5eur_voucher` rewards). */
+    voucher_public_id: v.optional(v.string())
   })
     .index("by_user", ["user_id"])
     .index("by_reward", ["reward_id"])

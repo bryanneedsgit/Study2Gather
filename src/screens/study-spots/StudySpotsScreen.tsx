@@ -11,6 +11,10 @@ import {
   View
 } from "react-native";
 import * as Location from "expo-location";
+import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
+import type { CompositeNavigationProp } from "@react-navigation/native";
+import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useMutation, useQuery } from "convex/react";
 import { AppCard } from "@/components/AppCard";
 import { ScreenContainer } from "@/components/ScreenContainer";
@@ -23,7 +27,13 @@ import { formatWalkMinutes } from "@/lib/walkTime";
 import { colors } from "@/theme/colors";
 import { radius, space } from "@/theme/layout";
 import type { Id } from "../../../convex/_generated/dataModel";
+import type { MainAppStackParamList, MainTabParamList } from "@/navigation/types";
 import { CafeReservationModal } from "./CafeReservationModal";
+
+type StudySpotsNav = CompositeNavigationProp<
+  BottomTabNavigationProp<MainTabParamList, "Study Spots">,
+  NativeStackNavigationProp<MainAppStackParamList>
+>;
 import StudySpotsMap from "./StudySpotsMap";
 import type { MapPoi, MapRegion } from "./studySpotsMapTypes";
 
@@ -78,6 +88,7 @@ function matchesSearch(poi: MapPoi, q: string): boolean {
 }
 
 export function StudySpotsScreen() {
+  const navigation = useNavigation<StudySpotsNav>();
   const { user, loading: sessionLoading } = useSession();
   const userId = user?._id as Id<"users"> | undefined;
   const reserveMutation = useMutation(api.cafe.createTimeBasedReservation);
@@ -284,6 +295,21 @@ export function StudySpotsScreen() {
         userId={userId}
         nowMs={modalNowMs}
         bookingNowMs={modalNowMs}
+        onOpenPaymentFlow={(payload) => {
+          const parent = navigation.getParent<NativeStackNavigationProp<MainAppStackParamList>>();
+          (parent ?? navigation).navigate("Payment", {
+            amountCents: payload.amountCents,
+            description: `Café reservation · ${payload.cafeName}`,
+            storeTimezoneOffsetMinutes: payload.storeTimezoneOffsetMinutes,
+            afterPayReserve: {
+              cafeId: payload.cafeId,
+              userId: payload.userId,
+              startTime: payload.startTime,
+              endTime: payload.endTime,
+              bookingNowMs: payload.bookingNowMs
+            }
+          });
+        }}
         onReserve={async (args) => {
           if (!userId) {
             Alert.alert("Sign in required", "Please sign in to reserve a seat at a partner café.");

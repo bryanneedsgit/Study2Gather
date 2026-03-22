@@ -20,8 +20,33 @@ export type MainTabParamList = {
   Profile: undefined;
 };
 
+/**
+ * Logged-in app shell: bottom tabs + modal payment (Stripe).
+ * Navigate to `Payment` from any tab via `navigation.navigate("Payment", { ... })`.
+ */
+export type MainAppStackParamList = {
+  Tabs: NavigatorScreenParams<MainTabParamList>;
+  Payment: {
+    amountCents?: number;
+    description?: string;
+    storeTimezoneOffsetMinutes?: number;
+    afterPayReserve?: {
+      cafeId: string;
+      userId: string;
+      startTime: number;
+      endTime: number;
+      bookingNowMs: number;
+    };
+    afterPaySpotCheckin?: {
+      reservationId: string;
+      cafeName: string;
+      userId: string;
+    };
+  };
+};
+
 export type RootStackParamList = {
   Auth: NavigatorScreenParams<AuthStackParamList>;
   Onboarding: undefined;
-  Main: NavigatorScreenParams<MainTabParamList>;
+  Main: NavigatorScreenParams<MainAppStackParamList>;
 };

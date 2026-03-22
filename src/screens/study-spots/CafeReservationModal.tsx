@@ -20,6 +20,7 @@ import {
   SLOT_STEP_MINUTES,
   storeLocalDayStartWithDayOffset
 } from "@/lib/storeLocalTime";
+import { STRIPE_PUBLISHABLE_KEY } from "@/lib/stripeConfig";
 import { colors } from "@/theme/colors";
 import { radius, space } from "@/theme/layout";
 import type { Id } from "../../../convex/_generated/dataModel";
@@ -34,6 +35,17 @@ export type CafeReservationModalCafe = {
   closes_local_minute: number;
 };
 
+export type CafeReservationPaymentPayload = {
+  amountCents: number;
+  cafeName: string;
+  cafeId: Id<"cafe_locations">;
+  userId: Id<"users">;
+  startTime: number;
+  endTime: number;
+  bookingNowMs: number;
+  storeTimezoneOffsetMinutes: number;
+};
+
 type Props = {
   visible: boolean;
   onClose: () => void;
@@ -43,6 +55,11 @@ type Props = {
   nowMs: number;
   /** Frozen when modal opens — same instant used for quote + `pricing_booking_now_ms`. */
   bookingNowMs: number;
+  /**
+   * When set and `EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY` is set, totals ≥ €0.50 use **Pay & reserve**
+   * (opens `Payment` on the root stack) instead of charging nothing here.
+   */
+  onOpenPaymentFlow?: (payload: CafeReservationPaymentPayload) => void;
   onReserve: (args: {
     cafeId: Id<"cafe_locations">;
     userId: Id<"users">;
@@ -105,6 +122,7 @@ export function CafeReservationModal({
   userId,
   nowMs,
   bookingNowMs,
+  onOpenPaymentFlow,
   onReserve
 }: Props) {
   const { height: windowHeight } = useWindowDimensions();
@@ -209,8 +227,28 @@ export function CafeReservationModal({
     }
   }, [closeUtcForDay, endUtc, startUtc]);
 
+  const amountCents = quote ? Math.round(quote.costEuro * 100) : 0;
+  const usePaymentFirst =
+    Boolean(STRIPE_PUBLISHABLE_KEY && onOpenPaymentFlow && quote && amountCents >= 50);
+
   const onConfirm = async () => {
     if (!cafe || !userId || startUtc <= 0 || endUtc <= startUtc) return;
+
+    if (usePaymentFirst && onOpenPaymentFlow && quote) {
+      onOpenPaymentFlow({
+        amountCents,
+        cafeName: cafe.name,
+        cafeId: cafe.cafeId,
+        userId,
+        startTime: startUtc,
+        endTime: endUtc,
+        bookingNowMs,
+        storeTimezoneOffsetMinutes: tz
+      });
+      onClose();
+      return;
+    }
+
     setSubmitting(true);
     try {
       const ok = await onReserve({
@@ -443,7 +481,8 @@ export function CafeReservationModal({
                 startSlots.length === 0 ||
                 endSlots.length === 0 ||
                 startUtc <= 0 ||
-                endUtc <= startUtc
+                endUtc <= startUtc ||
+                (usePaymentFirst && quote === undefined)
               }
               style={({ pressed }) => [
                 styles.btnPrimary,
@@ -455,13 +494,20 @@ export function CafeReservationModal({
                   startSlots.length === 0 ||
                   endSlots.length === 0 ||
                   startUtc <= 0 ||
-                  endUtc <= startUtc) &&
+                  endUtc <= startUtc ||
+                  (usePaymentFirst && quote === undefined)) &&
                   styles.btnDisabled
               ]}
               accessibilityRole="button"
             >
               <Text style={styles.btnPrimaryText}>
-                {submitting ? "Saving…" : userId ? "Confirm" : "Sign in to reserve"}
+                {submitting
+                  ? "Saving…"
+                  : userId
+                    ? usePaymentFirst
+                      ? "Pay & reserve"
+                      : "Confirm"
+                    : "Sign in to reserve"}
               </Text>
             </Pressable>
           </View>
