@@ -1,26 +1,38 @@
 # Study2Gather
 
-**Study2Gather** is a cross-platform study companion app built with **Expo (React Native)** and **Convex** as the backend. It helps students find study partners, stay focused with timed “lock-in” sessions, discover cafés and study spots on a map, book tables, earn points and tiers, compete on leaderboards, and participate in a lightweight forum. Optional **Stripe** payments support paid café reservations when configured.
+> **Find your crew. Lock in. Earn points.** A full-stack study companion: real-time backend, maps, QR check-ins, gamification, partner cafés, and optional payments — one Expo client + one Convex deployment.
 
-This repository is the full-stack application: the mobile-first UI (iOS, Android, and web via React Native Web), Convex functions and schema, HTTP integrations (including **n8n**), and helper scripts for team Convex deployments.
+---
+
+## Project overview
+
+**Problem.** Students want accountability at real study venues, lightweight social discovery, and incentives — without a heavy social network.
+
+**What we built.** **Study2Gather** is a cross-platform client (**iOS · Android · Web** via Expo / React Native Web) backed by **Convex** for auth, data, and serverless HTTP. Users complete **QR + GPS check-ins** before **solo lock-in** sessions to earn **points** and appear on **leaderboards**; they browse **study spots and cafés** on a map, use a **forum**, redeem **rewards** (including café voucher QR flows), and optionally pay via **Stripe**. The **Discover** tab shows **study-partner suggestions** resolved from Convex user profiles.
+
+**Automation / n8n.** Convex exposes **HTTP routes** for communication with **n8n**. A typical **n8n** workflow **pulls** recent **lock-in session** activity, runs your matching logic (or a model), then **POSTs** structured recommendations back; the app reads them in real time for Discover. See **[n8n workflow](#n8n-workflow)** below.
+
+**What this repo contains.** Application UI (`src/`), Convex backend (`convex/`), HTTP router (`convex/http.ts`), seed scripts for demos, and `docs/` for auth, payments, and QR formats.
 
 ---
 
 ## Table of contents
 
+- [Project overview](#project-overview)
 - [What the app does](#what-the-app-does)
 - [Architecture at a glance](#architecture-at-a-glance)
 - [Tech stack](#tech-stack)
+- [n8n workflow](#n8n-workflow)
 - [Repository layout](#repository-layout)
 - [Prerequisites](#prerequisites)
-- [Getting started](#getting-started)
+- [Getting started (fast path)](#getting-started-fast-path)
 - [Environment variables](#environment-variables)
 - [Running the app](#running-the-app)
 - [Convex backend](#convex-backend)
 - [Team deployments and CLI gotchas](#team-deployments-and-cli-gotchas)
 - [Authentication (Convex Auth)](#authentication-convex-auth)
 - [Payments (Stripe)](#payments-stripe)
-- [HTTP API and external integrations](#http-api-and-external-integrations)
+- [HTTP API (reference)](#http-api-reference)
 - [Data model overview](#data-model-overview)
 - [Convex function modules](#convex-function-modules)
 - [Seeding and migrations](#seeding-and-migrations)
@@ -87,13 +99,79 @@ This repository is the full-stack application: the mobile-first UI (iOS, Android
 
 | Layer | Technologies |
 |-------|----------------|
-| **App** | Expo SDK 53, React 19, React Native 0.79, React Native Web, TypeScript 5.8 |
-| **Navigation** | React Navigation 7 (native stack, bottom tabs) |
-| **Backend** | Convex 1.34 |
-| **Auth** | `@convex-dev/auth` (Password provider), JWT/JWKS via Convex env |
-| **Maps** | `react-native-maps` (native), web-specific map components where needed |
-| **Payments** | `@stripe/stripe-react-native`, `@stripe/stripe-js` + `@stripe/react-stripe-js` on web |
-| **Other** | Expo Camera (QR), Expo Location (GPS), Expo Secure Store, QR rendering (`react-native-qrcode-svg`, `qrcode`) |
+| **Client** | **Expo SDK 53**, **React 19**, **React Native 0.79**, **React Native Web**, **TypeScript 5.8** |
+| **Navigation** | **React Navigation 7** — native stack (auth, onboarding, payment modal) + bottom tabs (main app) |
+| **Backend** | **Convex 1.34** — real-time queries/mutations, schema, serverless functions |
+| **Auth** | **`@convex-dev/auth`** — Password (email) provider; JWT signing via **`JWT_PRIVATE_KEY` / `JWKS`** in Convex env |
+| **Maps** | **`react-native-maps`** on native; **web-specific** map components where native APIs are unavailable |
+| **Payments** | **Stripe** — `@stripe/stripe-react-native` (iOS/Android), `@stripe/stripe-js` + `@stripe/react-stripe-js` (web); PaymentIntents created in Convex **`payments.createPaymentIntent`** |
+| **Device** | **Expo Camera** (QR scan), **Expo Location** (GPS check-in radius), **Expo Secure Store** (token storage) |
+| **QR / display** | `react-native-qrcode-svg`, `qrcode` |
+| **Automation** | **n8n** (or any HTTP client) calls Convex **HTTP actions** on **`*.convex.site`** — see [n8n workflow](#n8n-workflow) |
+
+**Integration summary:** App ↔ **Convex** (WebSocket + HTTPS). Payments ↔ **Stripe API**. Recommendations ↔ **n8n** (or cron) ↔ Convex HTTP POST.
+
+---
+
+## n8n workflow
+
+HTTP actions live on the **Convex site** hostname: **`https://<deployment-name>.convex.site`**. This is **different** from the client URL **`https://<deployment-name>.convex.cloud`**. Find the deployment name under **Convex Dashboard → Settings → URL**, or read it from your app’s **`EXPO_PUBLIC_CONVEX_URL`** and swap `.cloud` → `.site` for HTTP routes.
+
+Implementation: **`convex/http.ts`**. Discover logic: **`convex/collaborationRecommendations.ts`**.
+
+### End-to-end flow (for judging)
+
+1. **Optional demo data** — Run **`npx convex run seed:seedCafeLocations`** (cafés/spots for maps), then **`npx convex run seed:seedN8nFeedData`**. The latter creates **up to 20 seed users** (school/course variety) and **historical `lock_in_sessions`** rows with optional **`location_id`**, so **`GET /get_n8n_data`** returns non-empty JSON for downstream matching.
+2. **Pull activity** — n8n **HTTP Request** node: **GET**  
+   `https://<deployment>.convex.site/get_n8n_data`  
+   Returns JSON: latest **`lock_in_sessions`** (newest first, default limit 50 via `lockInSessions.getLatestEntries`). Use this as **input** to your matching algorithm (similar venues, overlapping study times, embeddings, rules — your choice).
+3. **Compute matches** — In n8n, use **Code**, **AI**, or external services to produce, for **each user id**, up to **three** recommended peer user ids (Convex **`users`** document **`_id`** strings).
+4. **Push recommendations** — n8n **HTTP Request** node: **POST**  
+   `https://<deployment>.convex.site/n8n/collaboration_recommendations`  
+   **Content-Type:** `application/json`  
+   Body shape (HTTP layer accepts **`user_1` / `user_2` / `user_3`** per row; the server normalizes to **`matches: string[]`**):
+
+```json
+{
+  "userMatches": [
+    {
+      "user_id": "<convex users _id of the person receiving suggestions>",
+      "user_1": "<convex users _id of suggested peer 1>",
+      "user_2": "<convex users _id of suggested peer 2>",
+      "user_3": "<convex users _id of suggested peer 3>"
+    }
+  ],
+  "totalUsers": 20,
+  "timestamps": 1730000000000
+}
+```
+
+- **`user_id`** may also be sent as **`userId`** (alias).
+- **`user_1`** is required for at least one match; **`user_2`** / **`user_3`** are optional.
+- **`timestamps`** may be a **number** or **array of numbers**; if omitted, the server uses current time.
+- Success response: **`{"ok": true}`** (HTTP 200). Errors return JSON with **`error`** (HTTP 400) for invalid JSON or empty **`userMatches`**.
+
+5. **App behavior** — Each POST **inserts** a new row in **`collaboration_recommendations`**. The Discover screen calls **`collaborationRecommendations.getRecommendationsForCurrentUser`**: it loads the **latest** batch, finds the entry where **`user_id`** equals the **signed-in user’s** Convex id, then **resolves** **`user_1`–`user_3`** to **profiles** (username, school, course). **IDs must be real `users` rows** or those cards will not appear.
+
+### Read-only / debug endpoints
+
+| Method | URL | Purpose |
+|--------|-----|---------|
+| **GET** | `/n8n/collaboration_recommendations` | Latest stored recommendation batches (JSON), for debugging or downstream consumers. |
+
+### Example n8n graph (conceptual)
+
+```text
+[Schedule or Webhook]
+        →
+[HTTP GET  …/get_n8n_data]
+        →
+[Your logic: match users from session payload]
+        →
+[HTTP POST …/n8n/collaboration_recommendations with userMatches]
+```
+
+For a **static demo** without a live n8n instance, you can POST the same JSON with **curl** against your **`*.convex.site`** URL, or rely on **`seed:seedN8nFeedData`**-created users and craft **`userMatches`** by copying **`_id`** values from the Convex **Data** tab.
 
 ---
 
@@ -127,7 +205,9 @@ Path alias: **`@/*` → `src/*`** (see `tsconfig.json`).
 
 ---
 
-## Getting started
+## Getting started (fast path)
+
+You want: **dependencies → Convex linked → `.env` → auth env on deployment → Expo**. Full reset guide: `docs/CONFIGURE_FROM_SCRATCH.md`.
 
 ### 1. Install dependencies
 
@@ -274,17 +354,11 @@ Full tables of env vars and platform notes: **`docs/PAYMENTS.md`**.
 
 ---
 
-## HTTP API and external integrations
+## HTTP API (reference)
 
-HTTP actions are served from **`https://<deployment>.convex.site`** (not `.convex.cloud`). See comments in **`convex/http.ts`**.
+Same base URL as [n8n workflow](#n8n-workflow): **`https://<deployment>.convex.site`**. Route list, JSON examples, and seed steps are documented there; **`convex/http.ts`** is the implementation.
 
-| Method | Path | Purpose |
-|--------|------|---------|
-| GET | `/get_n8n_data` | JSON export of latest lock-in session rows (via `lockInSessions.getLatestEntries`). |
-| GET | `/n8n/collaboration_recommendations` | Latest stored collaboration recommendations. |
-| POST | `/n8n/collaboration_recommendations` | Ingest recommendation payloads from **n8n** (normalized and saved via internal mutation). |
-
-Convex Auth **HTTP routes** are also mounted via `auth.addHttpRoutes(http)`.
+**Convex Auth** also registers routes on this router via **`auth.addHttpRoutes(http)`** (flows used by `@convex-dev/auth` — see **`docs/CONVEX_AUTH.md`**).
 
 ---
 
@@ -337,7 +411,7 @@ The generated API aggregates these modules (see **`convex/_generated/api.d.ts`**
 **`convex/seed.ts`** exposes mutations for development and maintenance, including:
 
 - **`seedCafeLocations`** (and related seed helpers) — partner cafés and demo data.
-- **`seedN8nFeedData`** — sample collaboration data.
+- **`seedN8nFeedData`** — creates seed users + **`lock_in_sessions`** so **`GET /get_n8n_data`** is useful for n8n demos (see [n8n workflow](#n8n-workflow)).
 - **`migrateNameToUsername`**, **`removeNameFromUsers`** — user field migrations documented in-file.
 
 Run examples:
@@ -362,8 +436,7 @@ QR formats and API table: **`docs/LOCK_IN_QR.md`**.
 
 ### Discover / n8n
 
-1. External workflow POSTs to **`/n8n/collaboration_recommendations`** on the Convex **site** URL.
-2. Data is stored in **`collaboration_recommendations`** and surfaced to the Discover tab via **`collaborationRecommendations.getRecommendationsForCurrentUser`**.
+See **[n8n workflow](#n8n-workflow)** for URLs, JSON body, seed commands, and how Discover resolves **`user_id`** → **`user_1` / `user_2` / `user_3`** into profile cards.
 
 ### Café vouchers / rewards
 
@@ -411,10 +484,4 @@ See **`docs/DELETE_DEV_DEPLOYMENT.md`** if you need to remove an accidental Conv
 
 ---
 
-## License and contributing
-
-This project is marked **private** in `package.json`. Add a `LICENSE` file and contribution guidelines if you open-source or onboard collaborators.
-
----
-
-*Generated documentation for the Study2Gather codebase. For Convex product docs, see [convex.dev](https://convex.dev). For Expo, see [docs.expo.dev](https://docs.expo.dev).*
+**Links:** [Convex](https://convex.dev) · [Expo](https://docs.expo.dev)
