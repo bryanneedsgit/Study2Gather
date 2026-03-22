@@ -14,6 +14,14 @@ function nowMs(args: { nowMs?: number }): number {
   return args.nowMs ?? Date.now();
 }
 
+/** Opaque token for staff-facing QR (`reward_redemptions.voucher_public_id`). */
+function newVoucherPublicId(): string {
+  const chars = "0123456789abcdefghijklmnopqrstuvwxyz";
+  let s = "";
+  for (let i = 0; i < 28; i++) s += chars[Math.floor(Math.random() * chars.length)]!;
+  return `s2g_${s}`;
+}
+
 function assertPositiveIntegerAmount(n: number, field: string): void {
   if (!Number.isFinite(n) || n <= 0 || !Number.isInteger(n)) {
     throw new Error(`invalid_${field}`);
@@ -124,8 +132,50 @@ export const getAvailableRewards = queryGeneric({
       title: r.title,
       description: r.description,
       cost_points: r.cost_points,
-      sort_order: r.sort_order
+      sort_order: r.sort_order,
+      reward_kind: r.reward_kind
     }));
+  }
+});
+
+/**
+ * Completed redemptions for the Rewards “locker” (show QR for `cafe_5eur_voucher` rows).
+ */
+export const getRewardsLocker = queryGeneric({
+  args: {
+    userId: v.id("users")
+  },
+  handler: async (ctx, args) => {
+    const rows = await ctx.db
+      .query("reward_redemptions")
+      .withIndex("by_user", (q) => q.eq("user_id", args.userId))
+      .collect();
+    rows.sort((a, b) => b.created_at - a.created_at);
+
+    const out: {
+      redemptionId: Id<"reward_redemptions">;
+      rewardId: Id<"reward_catalog">;
+      title: string;
+      pointsSpent: number;
+      createdAt: number;
+      rewardKind: "standard" | "cafe_5eur_voucher" | undefined;
+      voucherPublicId: string | undefined;
+    }[] = [];
+
+    for (const row of rows) {
+      if (row.status !== "completed") continue;
+      const cat = await ctx.db.get(row.reward_id);
+      out.push({
+        redemptionId: row._id,
+        rewardId: row.reward_id,
+        title: cat?.title ?? "Reward",
+        pointsSpent: row.points_spent,
+        createdAt: row.created_at,
+        rewardKind: cat?.reward_kind,
+        voucherPublicId: row.voucher_public_id
+      });
+    }
+    return out;
   }
 });
 
@@ -172,18 +222,23 @@ export const redeemReward = mutationGeneric({
       throw e;
     }
 
+    const isQrCafeVoucher = reward.reward_kind === "cafe_5eur_voucher";
+    const voucherPublicId = isQrCafeVoucher ? newVoucherPublicId() : undefined;
+
     const redemptionId = await ctx.db.insert("reward_redemptions", {
       user_id: args.userId,
       reward_id: args.rewardId,
       points_spent: reward.cost_points,
       status: "completed",
-      created_at: t
+      created_at: t,
+      ...(voucherPublicId ? { voucher_public_id: voucherPublicId } : {})
     });
 
     return {
       ok: true as const,
       redemptionId,
-      balanceAfter
+      balanceAfter,
+      voucherPublicId: voucherPublicId ?? null
     };
   }
 });

@@ -32,7 +32,13 @@
         }
       ],
       "expo-asset",
-      "expo-font"
+      "expo-font",
+      [
+        "@stripe/stripe-react-native",
+        {
+          "merchantIdentifier": "merchant.com.study2gather"
+        }
+      ]
     ]
   }
 }

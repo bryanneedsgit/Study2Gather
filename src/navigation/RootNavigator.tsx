@@ -5,7 +5,7 @@ import { AuthScreen } from "@/screens/auth/AuthScreen";
 import { ForgotPasswordEmailScreen } from "@/screens/auth/ForgotPasswordEmailScreen";
 import { ForgotPasswordOtpScreen } from "@/screens/auth/ForgotPasswordOtpScreen";
 import { OnboardingScreen } from "@/screens/onboarding/OnboardingScreen";
-import { MainTabsNavigator } from "@/navigation/MainTabsNavigator";
+import { MainAppNavigator } from "@/navigation/MainAppNavigator";
 import type { AuthStackParamList } from "@/navigation/types";
 import { isOnboardingComplete } from "@/utils/profile";
 
@@ -40,7 +40,7 @@ export function RootNavigator() {
 
   return (
     <MainStack.Navigator screenOptions={{ headerShown: false }}>
-      <MainStack.Screen name="Main" component={MainTabsNavigator} />
+      <MainStack.Screen name="Main" component={MainAppNavigator} />
     </MainStack.Navigator>
   );
 }

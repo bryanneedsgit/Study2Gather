@@ -36,7 +36,7 @@ export function useFinalizeReservationAfterPayment() {
       });
       const endStore = formatStoreLocalDateTime(r.expiresAt, tz);
       const startStore = formatStoreLocalDateTime(reserve.startTime, tz);
-      const redeem = r.reservationVoucherRedeemEuro ?? r.totalCost;
+      const redeem = r.totalCost;
       showBanner({
         cafeName,
         reservationId: r.reservationId,

@@ -1,5 +1,5 @@
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { tabBarIcon } from "@/components/TabBarIcon";
+import { tabBarIonicon } from "@/components/TabBarIonicon";
 import { MainTabParamList } from "@/navigation/types";
 import { DiscoverScreen } from "@/screens/discover/DiscoverScreen";
 import { LockInScreen } from "@/screens/lockin/LockInScreen";
@@ -37,51 +37,46 @@ export function MainTabsNavigator() {
       <Tab.Screen
         name="Discover"
         component={DiscoverScreen}
-        options={{ tabBarIcon: tabBarIcon("compass-outline") }}
+        options={{ tabBarIcon: tabBarIonicon("compass-outline") }}
       />
       <Tab.Screen
         name="Lock-In"
         component={LockInScreen}
-        options={{ tabBarIcon: tabBarIcon("lock-closed-outline") }}
+        options={{ tabBarIcon: tabBarIonicon("lock-closed-outline") }}
       />
       <Tab.Screen
         name="Check-In"
         component={CheckInScreen}
         options={{
           tabBarLabel: "Check in",
-          tabBarIcon: tabBarIcon("qr-code-outline"),
+          tabBarIcon: tabBarIonicon("qr-code-outline"),
           headerShown: false
         }}
       />
       <Tab.Screen
-        name="Menu"
-        component={CafeMenuScreen}
-        options={{ tabBarIcon: tabBarIcon("restaurant-outline") }}
-      />
-      <Tab.Screen
         name="Forum"
         component={ForumScreen}
-        options={{ tabBarIcon: tabBarIcon("chatbubbles-outline") }}
+        options={{ tabBarIcon: tabBarIonicon("chatbubbles-outline") }}
       />
       <Tab.Screen
         name="Study Spots"
         component={StudySpotsScreen}
-        options={{ tabBarIcon: tabBarIcon("map-outline") }}
+        options={{ tabBarIcon: tabBarIonicon("map-outline") }}
       />
       <Tab.Screen
         name="Rewards"
         component={RewardsScreen}
-        options={{ tabBarIcon: tabBarIcon("gift-outline") }}
+        options={{ tabBarIcon: tabBarIonicon("gift-outline") }}
       />
       <Tab.Screen
         name="Leaderboard"
         component={LeaderboardScreen}
-        options={{ tabBarIcon: tabBarIcon("trophy-outline") }}
+        options={{ tabBarIcon: tabBarIonicon("trophy-outline") }}
       />
       <Tab.Screen
         name="Profile"
         component={ProfileScreen}
-        options={{ tabBarIcon: tabBarIcon("person-circle-outline") }}
+        options={{ tabBarIcon: tabBarIonicon("person-circle-outline") }}
       />
     </Tab.Navigator>
   );
