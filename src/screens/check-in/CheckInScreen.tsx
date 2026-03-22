@@ -37,6 +37,7 @@ export function CheckInScreen() {
   const { runCheckIn, isCheckingIn } = useVenueCheckIn();
   const [failure, setFailure] = useState<FailureState>(null);
   const [verified, setVerified] = useState(false);
+  const [showDurationPicker, setShowDurationPicker] = useState(false);
   /** Block duplicate barcode events before React state updates (same frame). */
   const scanLockedRef = useRef(false);
 
@@ -45,6 +46,8 @@ export function CheckInScreen() {
     lastData ? { raw: lastData } : "skip"
   );
 
+  const isCafe = venuePreview?.ok && venuePreview.kind === "cafe";
+
   const [androidCameraKey, setAndroidCameraKey] = useState(0);
 
   const resetScan = useCallback(() => {
@@ -52,6 +55,7 @@ export function CheckInScreen() {
     setPaused(false);
     setFailure(null);
     setVerified(false);
+    setShowDurationPicker(false);
     scanLockedRef.current = false;
     gpsAttemptForPayload.current = null;
     if (Platform.OS === "android") {
@@ -90,6 +94,7 @@ export function CheckInScreen() {
   useEffect(() => {
     /** Don’t re-enter the pipeline while the failure overlay is up (prevents flicker / cleared state). */
     if (failure) return;
+    if (showDurationPicker) return;
     if (!lastData) return;
     if (venuePreview === undefined) return;
 
@@ -119,6 +124,11 @@ export function CheckInScreen() {
       return;
     }
 
+    if (isCafe) {
+      setShowDurationPicker(true);
+      return;
+    }
+
     if (gpsAttemptForPayload.current === lastData) return;
     gpsAttemptForPayload.current = lastData;
     setFailure(null);
@@ -128,8 +138,13 @@ export function CheckInScreen() {
         await runCheckIn(lastData);
         setVerified(true);
         setFailure(null);
+        setShowDurationPicker(false);
       } catch (e) {
         const message = e instanceof Error ? e.message : String(e);
+        if (isCafe && message.toLowerCase().includes("no_reservation")) {
+          setShowDurationPicker(true);
+          return;
+        }
         const { userMessage } = mapVenueCheckInError(message);
         setFailure({
           title: "Verification failed",
@@ -137,7 +152,49 @@ export function CheckInScreen() {
         });
       }
     })();
-  }, [failure, lastData, venuePreview, user?._id, runCheckIn]);
+  }, [failure, lastData, venuePreview, user?._id, runCheckIn, isCafe, showDurationPicker]);
+
+  const handleWalkInDurationSelect = useCallback(
+    async (durationMinutes: number) => {
+      if (!lastData) return;
+      try {
+        await runCheckIn(lastData, durationMinutes);
+        setVerified(true);
+        setFailure(null);
+        setShowDurationPicker(false);
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        const { userMessage } = mapVenueCheckInError(message);
+        setFailure({
+          title: "Verification failed",
+          subtitle: userMessage
+        });
+        setShowDurationPicker(false);
+      }
+    },
+    [lastData, runCheckIn]
+  );
+
+  const handleHasReservation = useCallback(
+    async () => {
+      if (!lastData) return;
+      try {
+        await runCheckIn(lastData);
+        setVerified(true);
+        setFailure(null);
+        setShowDurationPicker(false);
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        const { userMessage } = mapVenueCheckInError(message);
+        setFailure({
+          title: "Verification failed",
+          subtitle: userMessage
+        });
+        setShowDurationPicker(false);
+      }
+    },
+    [lastData, runCheckIn]
+  );
 
   if (!permission) {
     return (
@@ -196,6 +253,7 @@ export function CheckInScreen() {
     screenFocused &&
     !failure &&
     !verified &&
+    !showDurationPicker &&
     !(paused && lastData != null);
 
   return (
@@ -254,12 +312,45 @@ export function CheckInScreen() {
             }
           ]}
         >
-          <AppCard style={styles.resultCard}>
-            <Text style={styles.resultLabel}>Scanned</Text>
-            <Text style={styles.resultData} selectable>
-              {lastData}
-            </Text>
-            <Text style={styles.resultLabel}>Status</Text>
+          {showDurationPicker ? (
+            <AppCard style={styles.resultCard}>
+              <Text style={styles.durationTitle}>How long do you want to stay?</Text>
+              <Text style={styles.durationSubtitle}>Pick a duration (up to 4 hours)</Text>
+              <View style={styles.durationRow}>
+                {[60, 120, 180, 240].map((mins) => (
+                  <Pressable
+                    key={mins}
+                    style={styles.durationBtn}
+                    onPress={() => void handleWalkInDurationSelect(mins)}
+                    disabled={isCheckingIn}
+                  >
+                    <Text style={styles.durationBtnText}>
+                      {mins === 60 ? "1h" : `${mins / 60}h`}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+              {isCheckingIn ? (
+                <ActivityIndicator color={colors.primary} style={{ marginTop: space.md }} />
+              ) : (
+                <Pressable
+                  style={styles.durationLinkBtn}
+                  onPress={() => void handleHasReservation()}
+                >
+                  <Text style={styles.durationLinkText}>I already have a reservation</Text>
+                </Pressable>
+              )}
+              <Pressable style={styles.durationCancelBtn} onPress={resetScan}>
+                <Text style={styles.durationCancelBtnText}>Cancel</Text>
+              </Pressable>
+            </AppCard>
+          ) : (
+            <AppCard style={styles.resultCard}>
+              <Text style={styles.resultLabel}>Scanned</Text>
+              <Text style={styles.resultData} selectable>
+                {lastData}
+              </Text>
+              <Text style={styles.resultLabel}>Status</Text>
             {venuePreview === undefined || isCheckingIn ? (
               <Text style={styles.previewPending}>Verifying venue and location…</Text>
             ) : venuePreview instanceof Error ? (
@@ -270,6 +361,7 @@ export function CheckInScreen() {
               </Text>
             ) : null}
           </AppCard>
+          )}
         </View>
       ) : null}
 
@@ -409,6 +501,60 @@ const styles = StyleSheet.create({
   },
   failOverlay: {
     backgroundColor: "#7f1d1d"
+  },
+  durationTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: colors.textPrimary,
+    marginBottom: space.xs
+  },
+  durationSubtitle: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginBottom: space.md
+  },
+  durationRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: space.md,
+    justifyContent: "center",
+    marginBottom: space.lg
+  },
+  durationBtn: {
+    backgroundColor: colors.primary,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: radius.md,
+    minWidth: 64
+  },
+  durationBtnText: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#fff"
+  },
+  durationLinkBtn: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginBottom: space.sm
+  },
+  durationLinkText: {
+    fontSize: 15,
+    color: colors.primary,
+    textDecorationLine: "underline"
+  },
+  durationCancelBtn: {
+    backgroundColor: "transparent",
+    paddingVertical: 14,
+    paddingHorizontal: 28,
+    borderRadius: radius.md,
+    marginTop: space.sm,
+    borderWidth: 1,
+    borderColor: colors.textMuted
+  },
+  durationCancelBtnText: {
+    fontSize: 17,
+    fontWeight: "700",
+    color: colors.textSecondary
   },
   okOverlay: {
     backgroundColor: "#14532d"
