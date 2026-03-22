@@ -1,16 +1,14 @@
-import { StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { useQuery } from "convex/react";
 import { AppCard } from "@/components/AppCard";
 import { ScreenContainer } from "@/components/ScreenContainer";
+import { api } from "@/lib/convexApi";
 import { colors } from "@/theme/colors";
 import { radius, space } from "@/theme/layout";
 
-const SUGGESTED = [
-  { id: "1", name: "Alex Chen", school: "NUS", course: "Algorithms", score: 94 },
-  { id: "2", name: "Sam Rivera", school: "SMU", course: "Data Structures", score: 91 },
-  { id: "3", name: "Jordan Lee", school: "NTU", course: "Linear Algebra", score: 88 }
-] as const;
-
 export function DiscoverScreen() {
+  const recommendations = useQuery(api.collaborationRecommendations.getRecommendationsForCurrentUser, {});
+
   return (
     <ScreenContainer tabTitle="Discover">
       <View style={styles.hero}>
@@ -23,25 +21,36 @@ export function DiscoverScreen() {
       </View>
 
       <Text style={styles.sectionLabel}>Suggested for you</Text>
-      {SUGGESTED.map((p) => (
-        <AppCard key={p.id} style={styles.matchCard}>
-          <View style={styles.matchRow}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{p.name.slice(0, 1)}</Text>
-            </View>
-            <View style={styles.matchMeta}>
-              <Text style={styles.matchName}>{p.name}</Text>
-              <Text style={styles.matchDetail}>
-                {p.school} · {p.course}
-              </Text>
-            </View>
-            <View style={styles.scorePill}>
-              <Text style={styles.scoreValue}>{p.score}%</Text>
-              <Text style={styles.scoreLabel}>match</Text>
-            </View>
-          </View>
+      {recommendations === undefined ? (
+        <View style={styles.loadingWrap}>
+          <ActivityIndicator size="small" color={colors.primary} />
+        </View>
+      ) : recommendations === null || recommendations.length === 0 ? (
+        <AppCard muted style={styles.emptyCard}>
+          <Text style={styles.emptyText}>No recommendations yet</Text>
         </AppCard>
-      ))}
+      ) : (
+        recommendations.map((p) => (
+          <AppCard key={p.id} style={styles.matchCard}>
+            <View style={styles.matchRow}>
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>
+                  {(p.username ?? p.id).slice(0, 1).toUpperCase()}
+                </Text>
+              </View>
+              <View style={styles.matchMeta}>
+                <Text style={styles.matchName}>{p.username ?? "Anonymous"}</Text>
+                <Text style={styles.matchDetail}>
+                  {[p.school, p.course].filter(Boolean).join(" · ") || "—"}
+                </Text>
+              </View>
+              <View style={styles.scorePill}>
+                <Text style={styles.scoreLabel}>match</Text>
+              </View>
+            </View>
+          </AppCard>
+        ))
+      )}
 
       <AppCard muted style={styles.hintCard}>
         <Text style={styles.hintTitle}>How matching works</Text>
@@ -89,6 +98,18 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 0.8,
     marginBottom: space.md
+  },
+  loadingWrap: {
+    paddingVertical: space.xl,
+    alignItems: "center"
+  },
+  emptyCard: {
+    paddingVertical: space.xl
+  },
+  emptyText: {
+    fontSize: 15,
+    color: colors.textSecondary,
+    textAlign: "center"
   },
   matchCard: {
     marginBottom: space.md,

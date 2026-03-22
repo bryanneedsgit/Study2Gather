@@ -307,8 +307,9 @@ export const completeLocationCheckIn = mutationGeneric({
       .collect();
     const alreadyCheckedInAt = existingRows.find(
       (r) =>
-        (studySpotId && r.study_spot_id === studySpotId) ||
-        (cafeId && r.cafe_id === cafeId)
+        r.expires_at > args.nowMs &&
+        ((studySpotId && r.study_spot_id === studySpotId) ||
+          (cafeId && r.cafe_id === cafeId))
     );
     if (alreadyCheckedInAt) {
       throw new Error(`already_checked_in|${resolved.name}`);

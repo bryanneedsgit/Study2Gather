@@ -21,7 +21,7 @@ import {
 export const addUser = mutationGeneric({
   args: {
     email: v.string(),
-    name: v.optional(v.string()),
+    username: v.optional(v.string()),
     school: v.optional(v.string()),
     course: v.optional(v.string()),
     age: v.optional(v.number()),
@@ -35,7 +35,7 @@ export const addUser = mutationGeneric({
     const now = Date.now();
     return await ctx.db.insert("users", {
       email: args.email.trim().toLowerCase(),
-      name: args.name,
+      username: args.username,
       school: args.school,
       course: args.course,
       age: args.age,

@@ -67,7 +67,9 @@ export default defineSchema({
    * Defaults for app fields are applied in `auth.ts` `afterUserCreatedOrUpdated`.
    */
   users: defineTable({
+    /** @deprecated Run seed:removeNameFromUsers to strip, then remove this. */
     name: v.optional(v.string()),
+    username: v.optional(v.string()),
     image: v.optional(v.string()),
     email: v.optional(v.string()),
     emailVerificationTime: v.optional(v.number()),
@@ -87,6 +89,7 @@ export default defineSchema({
     cooldown_until: v.optional(v.number())
   })
     .index("email", ["email"])
+    .index("username", ["username"])
     .index("by_school", ["school"])
     .index("by_school_and_course", ["school", "course"])
     .index("by_points", ["points"]),
@@ -133,7 +136,9 @@ export default defineSchema({
     user_id: v.id("users"),
     study_spot_id: v.optional(v.id("study_spots")),
     cafe_id: v.optional(v.id("cafe_locations")),
-    reservation_id: v.optional(v.id("lock_in_reservations")),
+    /** References lock_in_reservations or reservations; use string to accept legacy IDs. */
+    reservation_id: v.optional(v.string()),
+    /** Reservation window end (ms) — used for countdown when lock-in is reservation-gated. */
     reservation_end_time: v.optional(v.number()),
     verified_at: v.number(),
     expires_at: v.number(),
@@ -360,5 +365,22 @@ export default defineSchema({
     created_at: v.number()
   })
     .index("by_user", ["user_id"])
-    .index("by_user_created", ["user_id", "created_at"])
+    .index("by_user_created", ["user_id", "created_at"]),
+
+  /**
+   * n8n collaboration recommendations (via HTTP POST).
+   * userMatches = array of { user_id, matches }; totalUsers = count (number).
+   */
+  collaboration_recommendations: defineTable({
+    userMatches: v.array(
+      v.object({
+        user_id: v.string(),
+        matches: v.array(v.string())
+      })
+    ),
+    totalUsers: v.optional(v.number()),
+    timestamps: v.union(v.number(), v.array(v.number())),
+    created_at: v.number()
+  })
+    .index("by_created_at", ["created_at"])
 });

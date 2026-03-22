@@ -30,9 +30,11 @@ export function AuthScreen() {
   const { signInWithPassword } = useSession();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [username, setUsername] = useState("");
   const [flow, setFlow] = useState<"signIn" | "signUp">("signIn");
   const [emailError, setEmailError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [usernameError, setUsernameError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -45,6 +47,17 @@ export function AuthScreen() {
     } else {
       setPasswordError(null);
     }
+    if (flow === "signUp") {
+      const trimmed = username.trim();
+      if (!trimmed) {
+        setUsernameError("Please enter a username.");
+      } else {
+        setUsernameError(null);
+      }
+      if (!trimmed) return;
+    } else {
+      setUsernameError(null);
+    }
     if (err || password.length < 8) return;
 
     setSubmitting(true);
@@ -52,7 +65,8 @@ export function AuthScreen() {
       await signInWithPassword({
         email: email.trim(),
         password,
-        flow
+        flow,
+        ...(flow === "signUp" ? { username: username.trim() } : {})
       });
     } catch (e) {
       const raw = formatUnknownError(e);
@@ -103,6 +117,26 @@ export function AuthScreen() {
                   ? "Ready to lock in with your squad?"
                   : "Join with your school email and a secure password."}
               </Text>
+
+              {flow === "signUp" ? (
+                <FormField
+                  theme="dark"
+                  label="Username"
+                  required
+                  hint="How friends will see you (letters, numbers, underscores)."
+                  value={username}
+                  onChangeText={(t) => {
+                    setUsername(t);
+                    setUsernameError(null);
+                    setFormError(null);
+                  }}
+                  placeholder="jane_doe"
+                  autoCapitalize="none"
+                  autoComplete="username"
+                  error={usernameError}
+                  editable={!submitting}
+                />
+              ) : null}
 
               <FormField
                 theme="dark"
@@ -181,6 +215,7 @@ export function AuthScreen() {
                 onPress={() => {
                   setFlow((f) => (f === "signIn" ? "signUp" : "signIn"));
                   setFormError(null);
+                  setUsernameError(null);
                 }}
                 disabled={submitting}
               >

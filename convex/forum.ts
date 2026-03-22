@@ -145,7 +145,7 @@ export const getResponsesForPost = queryGeneric({
       const u = await ctx.db.get(r.author_id);
       enriched.push({
         ...r,
-        author_name: u?.name ?? undefined
+        author_name: u?.username ?? undefined
       });
     }
 
