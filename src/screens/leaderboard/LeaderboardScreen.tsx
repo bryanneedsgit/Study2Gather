@@ -18,8 +18,9 @@ export function LeaderboardScreen() {
   return (
     <ScreenContainer tabTitle="Leaderboard">
       <Text style={styles.subtitle}>
-        Monthly competition: points come from <Text style={styles.subEm}>completed group study sessions</Text> this
-        UTC calendar month only. This is not the same as your total point balance on Profile (rewards, lock-in, etc.).
+        Monthly competition: points come from <Text style={styles.subEm}>completed solo lock-in and group study</Text>{" "}
+        sessions this UTC calendar month only. Reward redemptions and other balance changes are not included — your
+        Profile total can differ.
       </Text>
 
       {userId && rank?.found ? (

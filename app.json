@@ -16,7 +16,9 @@
       "supportsTablet": true
     },
     "android": {},
-    "web": {},
+    "web": {
+      "favicon": "./assets/images/study2gather-logo.jpg"
+    },
     "plugins": [
       "expo-secure-store",
       [

@@ -18,7 +18,7 @@ export function ProfileScreen() {
   const userId = user?._id as Id<"users"> | undefined;
   const smokeKey = user?.email?.replace(/[^a-z0-9]/gi, "-") ?? "profile-smoke-test";
 
-  /** Same computation as Leaderboard tab (`monthlyPoints` from group sessions this UTC month). */
+  /** Same computation as Leaderboard tab (monthly points from completed solo + group sessions this UTC month). */
   const leaderboardRank = useQuery(api.leaderboard.getUserRank, userId ? { userId } : "skip");
 
   const backendStatus = useQuery(
@@ -56,7 +56,7 @@ export function ProfileScreen() {
                     {leaderboardRank.totalRankedUsers}
                   </Text>
                   <Text style={styles.leaderboardStripHint}>
-                    From completed group study sessions only — same number as on the Leaderboard tab.
+                    From completed solo lock-in and group study sessions — same as the Leaderboard tab.
                   </Text>
                 </View>
               ) : (

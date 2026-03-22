@@ -133,20 +133,20 @@ const styles = StyleSheet.create({
   checkInCard: {
     marginBottom: 16,
     padding: 14,
-    backgroundColor: "#f8fafc",
+    backgroundColor: colors.cardMuted,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: colors.border,
     gap: 10
   },
   checkInTitle: {
     fontSize: 15,
     fontWeight: "700",
-    color: "#0f172a"
+    color: colors.textPrimary
   },
   checkedIn: {
     fontSize: 14,
-    color: "#15803d",
+    color: colors.success,
     lineHeight: 20
   },
   bold: {

@@ -7,6 +7,7 @@ import { ForgotPasswordOtpScreen } from "@/screens/auth/ForgotPasswordOtpScreen"
 import { OnboardingScreen } from "@/screens/onboarding/OnboardingScreen";
 import { MainAppNavigator } from "@/navigation/MainAppNavigator";
 import type { AuthStackParamList } from "@/navigation/types";
+import { WEB_PAGE_TITLE } from "@/lib/webDocumentTitle";
 import { isOnboardingComplete } from "@/utils/profile";
 
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
@@ -22,8 +23,18 @@ export function RootNavigator() {
 
   if (!user) {
     return (
-      <AuthStack.Navigator initialRouteName="Auth" screenOptions={{ headerShown: false, animation: "fade" }}>
-        <AuthStack.Screen name="Auth" component={AuthScreen} />
+      <AuthStack.Navigator
+        initialRouteName="Auth"
+        screenOptions={{
+          title: WEB_PAGE_TITLE,
+          headerShown: false,
+          animation: "slide_from_right",
+          animationDuration: 280,
+          gestureEnabled: true,
+          fullScreenGestureEnabled: true
+        }}
+      >
+        <AuthStack.Screen name="Auth" component={AuthScreen} options={{ animation: "fade", animationDuration: 320 }} />
         <AuthStack.Screen name="ForgotPasswordEmail" component={ForgotPasswordEmailScreen} />
         <AuthStack.Screen name="ForgotPasswordOtp" component={ForgotPasswordOtpScreen} />
       </AuthStack.Navigator>
@@ -32,14 +43,22 @@ export function RootNavigator() {
 
   if (!isOnboardingComplete(user)) {
     return (
-      <OnboardingStack.Navigator screenOptions={{ headerShown: false }}>
+      <OnboardingStack.Navigator
+        screenOptions={{
+          title: WEB_PAGE_TITLE,
+          headerShown: false,
+          animation: "slide_from_right",
+          animationDuration: 300,
+          gestureEnabled: true
+        }}
+      >
         <OnboardingStack.Screen name="Onboarding" component={OnboardingScreen} />
       </OnboardingStack.Navigator>
     );
   }
 
   return (
-    <MainStack.Navigator screenOptions={{ headerShown: false }}>
+    <MainStack.Navigator screenOptions={{ title: WEB_PAGE_TITLE, headerShown: false }}>
       <MainStack.Screen name="Main" component={MainAppNavigator} />
     </MainStack.Navigator>
   );

@@ -1,11 +1,10 @@
 /**
- * Monthly leaderboard (hackathon MVP): **only** completed `study_sessions` in the UTC month window.
- * Does **not** use `users.points` for ranking (lifetime balance is unrelated to monthly competition).
+ * Monthly leaderboard: completed **group** `study_sessions` + completed **solo** `lock_in_sessions`
+ * in the UTC month window. Does **not** use raw `users.points` (rewards/redemptions still excluded).
  *
- * Per user (via `session_participants`):
- * - monthlyPoints = sum of `points_awarded` on each completed session they joined
- * - monthlyMinutes = sum of `duration_minutes` on those sessions
- * - completedSessions = count of those sessions
+ * Per user:
+ * - Group: via `session_participants` — sum `points_awarded`, `duration_minutes`, count sessions.
+ * - Solo: one user per row — same fields from `lock_in_sessions`.
  *
  * Rank: monthlyPoints desc → monthlyMinutes desc → completedSessions desc.
  */
@@ -105,6 +104,24 @@ async function buildMonthlyStats(
     }
   }
 
+  const soloInMonth = await ctx.db
+    .query("lock_in_sessions")
+    .withIndex("by_ended_at", (q: any) => q.gte("ended_at", startMs))
+    .filter((q: any) =>
+      q.and(q.lt(q.field("ended_at"), endMs), q.eq(q.field("status"), "completed"))
+    )
+    .collect();
+
+  for (const solo of soloInMonth) {
+    const row = byUser.get(solo.user_id);
+    if (!row) continue;
+    const dur = solo.duration_minutes ?? 0;
+    const pts = solo.points_awarded ?? 0;
+    row.monthlyMinutes += dur;
+    row.monthlyPoints += pts;
+    row.completedSessions += 1;
+  }
+
   return Array.from(byUser.values()).sort(compareRows);
 }
 
@@ -122,12 +139,13 @@ function toPublicEntry(rank: number, row: UserStats) {
 
 const methodology = {
   timeWindow: "UTC calendar month [startMs, endMs); optional yearMonth YYYY-MM or derive from nowMs",
-  source: "Completed study_sessions only (status === completed, ended_at in window).",
-  monthlyPoints: "Sum of points_awarded for each such session the user participated in.",
+  source:
+    "Completed group study_sessions (session_participants) + completed solo lock_in_sessions; ended_at in window.",
+  monthlyPoints: "Sum of points_awarded from those sessions (group: per participant; solo: one user).",
   monthlyMinutes: "Sum of duration_minutes for those sessions.",
-  completedSessions: "Count of those sessions.",
+  completedSessions: "Count of those sessions (group + solo).",
   ranking: "monthlyPoints desc, then monthlyMinutes desc, then completedSessions desc.",
-  notUsed: "users.points is not used for monthly ranking."
+  notUsed: "users.points total / rewards ledger are not used directly for monthly ranking."
 } as const;
 
 export const getMonthlyLeaderboard = queryGeneric({

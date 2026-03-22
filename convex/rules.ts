@@ -1,7 +1,7 @@
 /** Lock-in & rewards rule constants (single source of truth for mutations). */
 
 /** Points earned per full second of *eligible raw time* (see `pointsFromEligibleMs`). */
-export const POINTS_PER_ELIGIBLE_SECOND = 10000;
+export const POINTS_PER_ELIGIBLE_SECOND = 1;
 
 export const MAX_SESSION_MINUTES = 240;
 export const COOLDOWN_AFTER_CAP_MS = 2 * 60 * 60 * 1000;
