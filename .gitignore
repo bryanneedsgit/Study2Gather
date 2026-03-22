@@ -1,6 +1,9 @@
 # dependencies
 node_modules/
 
+# Temp/duplicate project folders (avoid Vercel monorepo detection)
+b_*/
+
 # Expo / React Native local
 .expo/
 .expo-shared/
