@@ -70,9 +70,19 @@ export function AuthScreen() {
       });
     } catch (e) {
       const raw = formatUnknownError(e);
+      const lower = raw.toLowerCase();
       if (
-        raw.toLowerCase().includes("invalid") ||
-        raw.toLowerCase().includes("credentials")
+        lower.includes("invalidaccountid") ||
+        lower.includes("account") && (lower.includes("does not exist") || lower.includes("not found"))
+      ) {
+        setFormError(
+          flow === "signIn"
+            ? "Your account does not exist, please create an account."
+            : "Could not create account. Try a different email or sign in instead."
+        );
+      } else if (
+        lower.includes("invalid") ||
+        lower.includes("credentials")
       ) {
         setFormError(
           flow === "signIn"
@@ -80,8 +90,8 @@ export function AuthScreen() {
             : "Could not create account. Try a different email or sign in instead."
         );
       } else if (
-        raw.toLowerCase().includes("failed to fetch") ||
-        raw.toLowerCase().includes("network")
+        lower.includes("failed to fetch") ||
+        lower.includes("network")
       ) {
         setFormError(`Network error: ${raw}\n\nCheck your internet connection and try again.`);
       } else {
