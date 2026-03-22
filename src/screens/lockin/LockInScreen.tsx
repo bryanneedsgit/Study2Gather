@@ -1,6 +1,8 @@
+import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Platform,
   StyleSheet,
   Text,
   View
@@ -15,9 +17,21 @@ import { api } from "@/lib/convexApi";
 import { colors } from "@/theme/colors";
 import { space } from "@/theme/layout";
 
+function mapLockInError(message: string): string {
+  const m = message.toLowerCase();
+  if (m.includes("night_window_no_start")) {
+    return "Lock-in can't be started between 12:00 AM and 6:00 AM (your local time). Try again during the day.";
+  }
+  if (m.includes("location_check_in_required")) return "Complete check-in on the Check-in tab first.";
+  if (m.includes("already_locked_in")) return "You already have an active session.";
+  if (m.includes("cooldown_active")) return "You're in cooldown. Wait before starting another session.";
+  return message;
+}
+
 export function LockInScreen() {
   const { user } = useSession();
   const { isLockedIn, startLockIn } = useLockInSession();
+  const [isStarting, setIsStarting] = useState(false);
   const policy = useQuery(api.lockInSolo.getLockInPointsPolicy, {});
   const locationCheckIn = useQuery(api.locationCheckIn.getActiveLocationCheckIn, user?._id ? {} : "skip");
 
@@ -25,14 +39,24 @@ export function LockInScreen() {
     user?._id && user && !isLockedIn && locationCheckIn !== undefined && locationCheckIn !== null
   );
 
-  async function onStart() {
+  const onStart = useCallback(async () => {
+    if (!canStart || isStarting) return;
+    setIsStarting(true);
     try {
       await startLockIn();
     } catch (e) {
-      const message = e instanceof Error ? e.message : String(e);
-      Alert.alert("Could not start", message);
+      const raw = e instanceof Error ? e.message : String(e);
+      const message = mapLockInError(raw);
+      console.error("[LockIn] startLockIn failed:", e);
+      if (Platform.OS === "web") {
+        window.alert(`Could not start: ${message}`);
+      } else {
+        Alert.alert("Could not start", message);
+      }
+    } finally {
+      setIsStarting(false);
     }
-  }
+  }, [canStart, isStarting, startLockIn]);
 
   return (
     <PlaceholderScreen title="Lock-In" subtitle="Solo focus session — earn points for eligible time.">
@@ -64,6 +88,9 @@ export function LockInScreen() {
             <Text style={styles.muted}>
               Use the <Text style={styles.bold}>Check in</Text> tab: scan the venue QR. We verify the code against our
               database, then request your location and compare it to the venue&apos;s coordinates automatically.
+              {"\n\n"}
+              If you added a check-in manually, ensure user_id matches your account, status is &quot;active&quot;, and
+              expires_at is in the future.
             </Text>
           ) : (
             <Text style={styles.checkedIn}>
@@ -83,6 +110,7 @@ export function LockInScreen() {
               title={isLockedIn ? "Session active" : "Start locked in"}
               onPress={() => void onStart()}
               disabled={!canStart}
+              loading={isStarting}
             />
             {!isLockedIn ? (
               <Text style={styles.muted}>
@@ -105,20 +133,20 @@ const styles = StyleSheet.create({
   checkInCard: {
     marginBottom: 16,
     padding: 14,
-    backgroundColor: "#f8fafc",
+    backgroundColor: colors.cardMuted,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: colors.border,
     gap: 10
   },
   checkInTitle: {
     fontSize: 15,
     fontWeight: "700",
-    color: "#0f172a"
+    color: colors.textPrimary
   },
   checkedIn: {
     fontSize: 14,
-    color: "#15803d",
+    color: colors.success,
     lineHeight: 20
   },
   bold: {

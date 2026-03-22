@@ -5,6 +5,7 @@ import { PrimaryButton } from "@/components/PrimaryButton";
 import { ScreenContainer } from "@/components/ScreenContainer";
 import { useSession } from "@/context/SessionContext";
 import { api } from "@/lib/convexApi";
+import type { Id } from "../../../convex/_generated/dataModel";
 import { colors } from "@/theme/colors";
 import { radius, space } from "@/theme/layout";
 
@@ -14,7 +15,11 @@ function tierLabel(tier: string): string {
 
 export function ProfileScreen() {
   const { user } = useSession();
+  const userId = user?._id as Id<"users"> | undefined;
   const smokeKey = user?.email?.replace(/[^a-z0-9]/gi, "-") ?? "profile-smoke-test";
+
+  /** Same computation as Leaderboard tab (monthly points from completed solo + group sessions this UTC month). */
+  const leaderboardRank = useQuery(api.leaderboard.getUserRank, userId ? { userId } : "skip");
 
   const backendStatus = useQuery(
     api.queries.getBackendHealth,
@@ -36,8 +41,27 @@ export function ProfileScreen() {
               <Text style={styles.email}>{user.email ?? "—"}</Text>
               <View style={styles.tierRow}>
                 <Text style={styles.tierBadge}>{tierLabel(user.tier_status)}</Text>
-                <Text style={styles.points}>{user.points} pts</Text>
               </View>
+              <Text style={styles.pointsBalance}>
+                <Text style={styles.pointsBalanceLabel}>Total points</Text> — {user.points} pts
+              </Text>
+              <Text style={styles.pointsHint}>Spend these in Rewards (balance on your account).</Text>
+              {leaderboardRank === undefined ? (
+                <ActivityIndicator color={colors.primary} style={{ marginTop: 10 }} />
+              ) : leaderboardRank.found ? (
+                <View style={styles.leaderboardStrip}>
+                  <Text style={styles.leaderboardStripLabel}>Leaderboard this month (UTC)</Text>
+                  <Text style={styles.leaderboardStripValue}>
+                    {leaderboardRank.stats.monthlyPoints} month pts · #{leaderboardRank.rank} of{" "}
+                    {leaderboardRank.totalRankedUsers}
+                  </Text>
+                  <Text style={styles.leaderboardStripHint}>
+                    From completed solo lock-in and group study sessions — same as the Leaderboard tab.
+                  </Text>
+                </View>
+              ) : (
+                <Text style={styles.leaderboardMissing}>Leaderboard rank for this month isn’t available yet.</Text>
+              )}
             </View>
           </View>
           {(user.school || user.course || user.age != null) && (
@@ -131,6 +155,51 @@ const styles = StyleSheet.create({
     marginTop: space.sm,
     gap: space.md
   },
+  pointsBalance: {
+    marginTop: space.md,
+    fontSize: 17,
+    fontWeight: "700",
+    color: colors.textPrimary
+  },
+  pointsBalanceLabel: {
+    color: colors.primary
+  },
+  pointsHint: {
+    marginTop: 4,
+    fontSize: 13,
+    color: colors.textMuted,
+    lineHeight: 18
+  },
+  leaderboardStrip: {
+    marginTop: space.md,
+    paddingTop: space.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border
+  },
+  leaderboardStripLabel: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: colors.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 0.6
+  },
+  leaderboardStripValue: {
+    marginTop: 6,
+    fontSize: 15,
+    fontWeight: "700",
+    color: colors.textSecondary
+  },
+  leaderboardStripHint: {
+    marginTop: 6,
+    fontSize: 12,
+    color: colors.textMuted,
+    lineHeight: 17
+  },
+  leaderboardMissing: {
+    marginTop: space.md,
+    fontSize: 13,
+    color: colors.textMuted
+  },
   tierBadge: {
     fontSize: 12,
     fontWeight: "800",
@@ -140,11 +209,6 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 8,
     overflow: "hidden"
-  },
-  points: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: colors.textSecondary
   },
   grid: {
     marginTop: space.lg,

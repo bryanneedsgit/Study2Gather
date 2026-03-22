@@ -16,7 +16,9 @@
       "supportsTablet": true
     },
     "android": {},
-    "web": {},
+    "web": {
+      "favicon": "./assets/images/study2gather-logo.jpg"
+    },
     "plugins": [
       "expo-secure-store",
       [
@@ -29,6 +31,14 @@
         "expo-location",
         {
           "locationWhenInUsePermission": "Study2Gather uses your location to verify you're at the study venue before starting lock-in."
+        }
+      ],
+      "expo-asset",
+      "expo-font",
+      [
+        "@stripe/stripe-react-native",
+        {
+          "merchantIdentifier": "merchant.com.study2gather"
         }
       ]
     ]

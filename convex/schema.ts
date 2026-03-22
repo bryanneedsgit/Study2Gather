@@ -57,6 +57,9 @@ const locationCheckInStatus = v.union(
 
 const rewardRedemptionStatus = v.union(v.literal("completed"));
 
+/** Catalog row kind — `cafe_5eur_voucher` issues a scannable QR perk after redeem. */
+const rewardCatalogKind = v.union(v.literal("standard"), v.literal("cafe_5eur_voucher"));
+
 export default defineSchema({
   ...authTables,
   /**
@@ -91,9 +94,22 @@ export default defineSchema({
   /**
    * Solo “locked in” focus sessions (one user). Group lock-in still uses `study_sessions`.
    */
+  lock_in_reservations: defineTable({
+    user_id: v.id("users"),
+    location_id: v.string(),
+    start_time: v.number(),
+    end_time: v.number(),
+    duration: v.number(),
+    status: v.optional(
+      v.union(v.literal("active"), v.literal("used"), v.literal("expired"))
+    )
+  })
+    .index("by_user", ["user_id"])
+    .index("by_user_location", ["user_id", "location_id"])
+    .index("by_location_start", ["location_id", "start_time"]),
+
   lock_in_sessions: defineTable({
     user_id: v.id("users"),
-    /** Venue id from check-in: `study_spots` or `cafe_locations` id as string (for analytics / n8n). */
     location_id: v.optional(v.string()),
     /** Reservation window end (ms) — used for countdown when lock-in is reservation-gated. */
     reservation_end_time: v.optional(v.number()),
@@ -105,7 +121,9 @@ export default defineSchema({
     timezone_offset_minutes: v.number()
   })
     .index("by_user", ["user_id"])
-    .index("by_user_status", ["user_id", "status"]),
+    .index("by_user_status", ["user_id", "status"])
+    /** Monthly leaderboard range queries (completed sessions with `ended_at`). */
+    .index("by_ended_at", ["ended_at"]),
 
   /**
    * User completed QR scan + server location validation at a study spot or cafe.
@@ -211,8 +229,44 @@ export default defineSchema({
     total_stipulated_tables: v.number(),
     current_occupied_tables: v.number(),
     footfall_metric: v.number(),
-    reduce_margin: v.boolean()
+    reduce_margin: v.boolean(),
+    /** Minutes east of UTC for store wall time (e.g. 480 = Singapore). */
+    timezone_offset_minutes: v.optional(v.number()),
+    /** Store opens at this local minute-of-day [0, 1440). */
+    opens_local_minute: v.optional(v.number()),
+    /** Store closes at this local minute-of-day; must be > opens (same calendar day). */
+    closes_local_minute: v.optional(v.number()),
+    /** Last OSM `opening_hours` string applied by `cafeOsmSync:syncCafeHoursFromOsm` (audit / debug). */
+    opening_hours_osm_raw: v.optional(v.string())
   }).index("by_name", ["name"]),
+
+  /** Partner café menu lines (shown in-app only after check-in + reservation match). */
+  cafe_menu_items: defineTable({
+    cafe_id: v.id("cafe_locations"),
+    name: v.string(),
+    description: v.optional(v.string()),
+    /** Legacy single price; used when original/s2g not set. */
+    price_cents: v.optional(v.number()),
+    /** List price at the café counter. */
+    cafe_original_price_cents: v.optional(v.number()),
+    /** Study2Gather partner rate before coupon. */
+    s2g_special_price_cents: v.optional(v.number()),
+    /** Cents off when the user applies an eligible coupon at checkout. */
+    coupon_discount_cents: v.optional(v.number()),
+    category: v.optional(v.string()),
+    sort_order: v.number()
+  }).index("by_cafe", ["cafe_id"]),
+
+  /** Optional audit rows for menu-tab / check-in flows (legacy). */
+  menu_tab_test_runs: defineTable({
+    user_id: v.id("users"),
+    cafe_id: v.id("cafe_locations"),
+    reservation_id: v.optional(v.id("reservations")),
+    check_in_id: v.id("lock_in_location_check_ins"),
+    created_at: v.number()
+  })
+    .index("by_user", ["user_id"])
+    .index("by_cafe", ["cafe_id"]),
 
   cafe_seat_holds: defineTable({
     cafe_id: v.id("cafe_locations"),
@@ -233,6 +287,12 @@ export default defineSchema({
     coupon_purchase_id: v.optional(v.id("coupon_purchases")),
     start_time: v.number(),
     end_time: v.number(),
+    /** Length of stay in hours (informational; pricing uses ms range + UTC day caps). */
+    duration_hours: v.optional(v.number()),
+    /** Total price in euros for this reservation window (time-based flow). */
+    cost: v.optional(v.number()),
+    /** Client time when price was first quoted/booked; used to extend at same advance-tier rules. */
+    pricing_booking_now_ms: v.optional(v.number()),
     status: reservationStatus,
     is_verified: v.boolean()
   })
@@ -268,7 +328,12 @@ export default defineSchema({
     cost_points: v.number(),
     active: v.boolean(),
     created_at: v.number(),
-    sort_order: v.optional(v.number())
+    sort_order: v.optional(v.number()),
+    /**
+     * `cafe_5eur_voucher` — redeeming spends points and issues a scannable €5 café coupon (QR).
+     * Omitted / `standard` — catalog perk without in-app QR voucher.
+     */
+    reward_kind: v.optional(rewardCatalogKind)
   }).index("by_active", ["active"]),
 
   /** Successful reward redemptions (audit). */
@@ -277,7 +342,9 @@ export default defineSchema({
     reward_id: v.id("reward_catalog"),
     points_spent: v.number(),
     status: rewardRedemptionStatus,
-    created_at: v.number()
+    created_at: v.number(),
+    /** Opaque token embedded in QR for staff validation (set for `cafe_5eur_voucher` rewards). */
+    voucher_public_id: v.optional(v.string())
   })
     .index("by_user", ["user_id"])
     .index("by_reward", ["reward_id"])

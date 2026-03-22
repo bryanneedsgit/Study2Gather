@@ -1,7 +1,9 @@
 import { ReactNode } from "react";
-import { Platform, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Platform, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LogoutLink } from "@/components/HeaderLogoutButton";
+import { AnimatedLogoMark } from "@/components/study2gather/AnimatedLogoMark";
+import { StudyBackground } from "@/components/study2gather/StudyBackground";
 import { colors } from "@/theme/colors";
 import { contentMaxWidth, space } from "@/theme/layout";
 
@@ -10,7 +12,7 @@ type ScreenContainerProps = {
   /** Default true — scroll when content overflows (most tab screens). */
   scroll?: boolean;
   edges?: ("top" | "right" | "bottom" | "left")[];
-  /** Top row: screen title + compact Log out (same on every tab). */
+  /** Used for accessibility only (bottom tab shows the screen name). */
   tabTitle?: string;
 };
 
@@ -23,10 +25,10 @@ export function ScreenContainer({
   const inner = (
     <View style={[styles.inner, !scroll && styles.innerFill]}>
       {tabTitle ? (
-        <View style={styles.tabHeader}>
-          <Text style={styles.tabHeaderTitle} numberOfLines={1}>
-            {tabTitle}
-          </Text>
+        <View style={styles.tabHeader} accessibilityRole="header">
+          <View style={styles.tabHeaderBrand} accessible accessibilityLabel={tabTitle} accessibilityHint="Study2Gather">
+            <AnimatedLogoMark size={42} />
+          </View>
           <LogoutLink size="header" />
         </View>
       ) : null}
@@ -35,26 +37,28 @@ export function ScreenContainer({
   );
 
   return (
-    <SafeAreaView style={styles.safe} edges={edges}>
-      {scroll ? (
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          {inner}
-        </ScrollView>
-      ) : (
-        inner
-      )}
-    </SafeAreaView>
+    <StudyBackground>
+      <SafeAreaView style={styles.safe} edges={edges}>
+        {scroll ? (
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            {inner}
+          </ScrollView>
+        ) : (
+          inner
+        )}
+      </SafeAreaView>
+    </StudyBackground>
   );
 }
 
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: colors.background
+    backgroundColor: "transparent"
   },
   scrollContent: {
     flexGrow: 1,
@@ -80,11 +84,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border
   },
-  tabHeaderTitle: {
+  tabHeaderBrand: {
     flex: 1,
-    fontSize: 20,
-    fontWeight: "800",
-    color: colors.textPrimary,
-    letterSpacing: -0.4
+    flexDirection: "row",
+    alignItems: "center"
   }
 });

@@ -1,6 +1,8 @@
+import { useEffect } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { LogoMark } from "@/components/study2gather/LogoMark";
 import { StudyBackground } from "@/components/study2gather/StudyBackground";
+import { setWebDocumentTitle } from "@/lib/webDocumentTitle";
 import { sg } from "@/theme/study2gatherUi";
 
 interface LoadingScreenProps {
@@ -8,6 +10,10 @@ interface LoadingScreenProps {
 }
 
 export function LoadingScreen({ message = "Loading…" }: LoadingScreenProps) {
+  useEffect(() => {
+    setWebDocumentTitle();
+  }, []);
+
   return (
     <StudyBackground>
       <View style={styles.container}>

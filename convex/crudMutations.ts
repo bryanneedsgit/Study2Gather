@@ -287,7 +287,11 @@ export const addCafeLocation = mutationGeneric({
     total_stipulated_tables: v.number(),
     current_occupied_tables: v.number(),
     footfall_metric: v.number(),
-    reduce_margin: v.boolean()
+    reduce_margin: v.boolean(),
+    timezone_offset_minutes: v.optional(v.number()),
+    opens_local_minute: v.optional(v.number()),
+    closes_local_minute: v.optional(v.number()),
+    opening_hours_osm_raw: v.optional(v.string())
   },
   handler: async (ctx, args) => {
     return await ctx.db.insert("cafe_locations", {
@@ -297,7 +301,11 @@ export const addCafeLocation = mutationGeneric({
       total_stipulated_tables: args.total_stipulated_tables,
       current_occupied_tables: args.current_occupied_tables,
       footfall_metric: args.footfall_metric,
-      reduce_margin: args.reduce_margin
+      reduce_margin: args.reduce_margin,
+      timezone_offset_minutes: args.timezone_offset_minutes,
+      opens_local_minute: args.opens_local_minute,
+      closes_local_minute: args.closes_local_minute,
+      opening_hours_osm_raw: args.opening_hours_osm_raw
     });
   }
 });
@@ -350,6 +358,9 @@ export const addReservation = mutationGeneric({
     coupon_purchase_id: v.optional(v.id("coupon_purchases")),
     start_time: v.number(),
     end_time: v.number(),
+    duration_hours: v.optional(v.number()),
+    cost: v.optional(v.number()),
+    pricing_booking_now_ms: v.optional(v.number()),
     status: reservationStatus,
     is_verified: v.boolean()
   },
@@ -362,6 +373,9 @@ export const addReservation = mutationGeneric({
       coupon_purchase_id: args.coupon_purchase_id,
       start_time: args.start_time,
       end_time: args.end_time,
+      duration_hours: args.duration_hours,
+      cost: args.cost,
+      pricing_booking_now_ms: args.pricing_booking_now_ms,
       status: args.status,
       is_verified: args.is_verified
     });

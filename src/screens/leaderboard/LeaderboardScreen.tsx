@@ -17,17 +17,21 @@ export function LeaderboardScreen() {
 
   return (
     <ScreenContainer tabTitle="Leaderboard">
-      <Text style={styles.subtitle}>Monthly standings from completed group study sessions (UTC month).</Text>
+      <Text style={styles.subtitle}>
+        Monthly competition: points come from <Text style={styles.subEm}>completed solo lock-in and group study</Text>{" "}
+        sessions this UTC calendar month only. Reward redemptions and other balance changes are not included — your
+        Profile total can differ.
+      </Text>
 
       {userId && rank?.found ? (
         <AppCard style={styles.you}>
-          <Text style={styles.youLabel}>Your rank</Text>
+          <Text style={styles.youLabel}>Your rank (this month)</Text>
           <Text style={styles.youValue}>
             #{rank.rank} of {rank.totalRankedUsers}
           </Text>
           <Text style={styles.youMeta}>
-            {rank.stats.monthlyPoints} pts · {rank.stats.monthlyMinutes} min · {rank.stats.completedSessions}{" "}
-            sessions
+            {rank.stats.monthlyPoints} month pts · {rank.stats.monthlyMinutes} min · {rank.stats.completedSessions}{" "}
+            group sessions
           </Text>
         </AppCard>
       ) : userId && rank && rank.found === false ? (
@@ -51,7 +55,7 @@ export function LeaderboardScreen() {
                 <Text style={styles.school}>{e.school ?? "—"}</Text>
               </View>
               <View style={styles.stats}>
-                <Text style={styles.statMain}>{e.monthlyPoints} pts</Text>
+                <Text style={styles.statMain}>{e.monthlyPoints} month pts</Text>
                 <Text style={styles.statSub}>{e.monthlyMinutes} min</Text>
               </View>
             </AppCard>
@@ -68,6 +72,10 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     color: colors.textSecondary,
     marginBottom: space.lg
+  },
+  subEm: {
+    fontWeight: "700",
+    color: colors.textPrimary
   },
   you: {
     marginBottom: space.xl,
